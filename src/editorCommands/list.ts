@@ -87,7 +87,6 @@ export function toggleList(view: EditorView, targetType: ListType): void {
     pos = line.to + 1;
   }
 
-  const newFrom = Math.max(fromLine.from, from + (changes[0] ? changes[0].insert.length - (changes[0].to - changes[0].from) : 0));
   view.dispatch({
     changes,
     selection: EditorSelection.cursor(Math.min(from + totalDelta, view.state.doc.length + totalDelta)),

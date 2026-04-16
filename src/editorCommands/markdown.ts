@@ -45,6 +45,10 @@ export function toggleCode(view: EditorView): void {
   toggleInlineMarker(view, '`');
 }
 
+export function toggleStrike(view: EditorView): void {
+  toggleInlineMarker(view, '~~');
+}
+
 export function toggleHeading(view: EditorView, level = 2): void {
   const { from } = view.state.selection.main;
   const line = view.state.doc.lineAt(from);
@@ -59,6 +63,32 @@ export function toggleHeading(view: EditorView, level = 2): void {
 
   const existingMatch = line.text.match(/^#{1,6}\s/);
   const removeLen = existingMatch ? existingMatch[0].length : 0;
+  view.dispatch({
+    changes: { from: line.from, to: line.from + removeLen, insert: prefix },
+  });
+}
+
+/**
+ * Cycle the current line's heading level: paragraph → H1 → H2 → H3 → paragraph.
+ */
+export function cycleHeading(view: EditorView): void {
+  const { from } = view.state.selection.main;
+  const line = view.state.doc.lineAt(from);
+  const match = line.text.match(/^(#{1,6})\s/);
+  const currentLevel = match ? match[1].length : 0;
+  const nextLevel = currentLevel === 0 ? 1 : currentLevel >= 3 ? 0 : currentLevel + 1;
+
+  if (nextLevel === 0) {
+    if (match) {
+      view.dispatch({
+        changes: { from: line.from, to: line.from + match[0].length, insert: '' },
+      });
+    }
+    return;
+  }
+
+  const prefix = `${'#'.repeat(nextLevel)} `;
+  const removeLen = match ? match[0].length : 0;
   view.dispatch({
     changes: { from: line.from, to: line.from + removeLen, insert: prefix },
   });

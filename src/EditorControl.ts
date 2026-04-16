@@ -11,14 +11,18 @@ import {
 } from './extensions';
 import {
   computeSelectionFormatting,
+  cycleHeading,
   insertCodeBlock,
   insertHorizontalRule,
+  insertImage,
+  insertLink,
   insertTable,
   toggleBold,
   toggleCode,
   toggleHeading,
   toggleItalic,
   toggleList,
+  toggleStrike,
 } from './editorCommands';
 import { insertLineAfter } from './editorCommands/insertLineAfter';
 import { sortSelectedLines } from './editorCommands/sortSelectedLines';
@@ -48,13 +52,17 @@ export class EditorControlImpl implements EditorControl {
       case 'toggleBold':
       case 'toggleItalic':
       case 'toggleCode':
+      case 'toggleStrike':
       case 'toggleHeading':
+      case 'cycleHeading':
       case 'toggleOrderedList':
       case 'toggleUnorderedList':
       case 'toggleCheckList':
       case 'insertCodeBlock':
       case 'insertHorizontalRule':
       case 'insertTable':
+      case 'insertLink':
+      case 'insertImage':
       case 'selectAll':
       case 'duplicateLine':
       case 'deleteLine':
@@ -84,8 +92,12 @@ export class EditorControlImpl implements EditorControl {
         return toggleItalic(this.view);
       case 'toggleCode':
         return toggleCode(this.view);
+      case 'toggleStrike':
+        return toggleStrike(this.view);
       case 'toggleHeading':
         return toggleHeading(this.view, typeof args[0] === 'number' ? args[0] : 2);
+      case 'cycleHeading':
+        return cycleHeading(this.view);
       case 'toggleOrderedList':
         return toggleList(this.view, 'ordered');
       case 'toggleUnorderedList':
@@ -98,6 +110,17 @@ export class EditorControlImpl implements EditorControl {
         return insertHorizontalRule(this.view);
       case 'insertTable':
         return insertTable(this.view);
+      case 'insertLink':
+        return insertLink(
+          this.view,
+          typeof args[0] === 'string' ? args[0] : undefined,
+          typeof args[1] === 'string' ? args[1] : undefined,
+        );
+      case 'insertImage': {
+        const url = typeof args[0] === 'string' ? args[0] : '';
+        const alt = typeof args[1] === 'string' ? args[1] : '';
+        return url ? insertImage(this.view, url, alt) : undefined;
+      }
       case 'selectAll':
         return selectAll(this.view);
       case 'duplicateLine':

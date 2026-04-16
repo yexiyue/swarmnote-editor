@@ -7,13 +7,17 @@ export enum EditorCommandType {
   ToggleBold = 'toggleBold',
   ToggleItalic = 'toggleItalic',
   ToggleCode = 'toggleCode',
+  ToggleStrike = 'toggleStrike',
   ToggleHeading = 'toggleHeading',
+  CycleHeading = 'cycleHeading',
   ToggleOrderedList = 'toggleOrderedList',
   ToggleUnorderedList = 'toggleUnorderedList',
   ToggleCheckList = 'toggleCheckList',
   InsertCodeBlock = 'insertCodeBlock',
   InsertHorizontalRule = 'insertHorizontalRule',
   InsertTable = 'insertTable',
+  InsertLink = 'insertLink',
+  InsertImage = 'insertImage',
   SelectAll = 'selectAll',
   DuplicateLine = 'duplicateLine',
   DeleteLine = 'deleteLine',
@@ -111,6 +115,17 @@ export interface EditorProps {
   autofocus?: boolean;
   collaboration?: EditorCollaborationConfig;
   onEvent?: (event: EditorEvent) => void;
+  /**
+   * Optional resolver for `![alt](src)` image URLs. Called with the raw `src`
+   * string from the Markdown source; returns the URL that will actually be
+   * assigned to `<img src>`. Useful for mapping workspace-relative paths to
+   * platform-specific protocols (e.g. Tauri `asset://`).
+   *
+   * The resolver may return a Promise. Until it resolves the widget renders
+   * without a src (placeholder height only). On rejection or load error the
+   * widget retries with backoff up to 3 times before showing a fallback.
+   */
+  imageResolver?: (src: string) => string | Promise<string>;
 }
 
 export interface EditorControl {

@@ -11,7 +11,16 @@ import { classHighlighter } from '@lezer/highlight';
 
 import { EditorControlImpl } from './EditorControl';
 import { EditorEventType } from './events';
-import { computeSelectionFormatting } from './editorCommands';
+import {
+  computeSelectionFormatting,
+  cycleHeading,
+  insertLink,
+  toggleBold,
+  toggleCode,
+  toggleItalic,
+  toggleList,
+  toggleStrike,
+} from './editorCommands';
 import {
   createCollaborationExtension,
   createEditorSettingsExtension,
@@ -34,6 +43,29 @@ import { createSelectionRange } from './utils/selection';
 
 (EditorView as unknown as { EDIT_CONTEXT: boolean }).EDIT_CONTEXT = false;
 
+/** Wrap a void-returning command into a keymap `run` handler that reports "handled". */
+function handled(fn: (view: EditorView) => void) {
+  return (view: EditorView) => {
+    fn(view);
+    return true;
+  };
+}
+
+/** Markdown formatting shortcuts exposed as a CM6 keymap. */
+function buildFormatKeymap() {
+  return [
+    { key: 'Mod-b', run: handled(toggleBold) },
+    { key: 'Mod-i', run: handled(toggleItalic) },
+    { key: 'Mod-e', run: handled(toggleCode) },
+    { key: 'Mod-Shift-x', run: handled(toggleStrike) },
+    { key: 'Mod-k', run: handled((view) => insertLink(view)) },
+    { key: 'Mod-Shift-7', run: handled((view) => toggleList(view, 'ordered')) },
+    { key: 'Mod-Shift-8', run: handled((view) => toggleList(view, 'unordered')) },
+    { key: 'Mod-Shift-9', run: handled((view) => toggleList(view, 'check')) },
+    { key: 'Mod-Shift-h', run: handled(cycleHeading) },
+  ];
+}
+
 export function createEditor(
   parent: HTMLElement,
   props: EditorProps,
@@ -45,6 +77,7 @@ export function createEditor(
     initialSearchState,
     collaboration,
     onEvent,
+    imageResolver,
   } = props;
 
   const settingsRuntime = createEditorSettingsExtension(settings);
@@ -77,7 +110,7 @@ export function createEditor(
         })]
       : []),
     ...(settings.features.blockImageRendering
-      ? [createBlockImageExtension(), createBlockTableExtension()]
+      ? [createBlockImageExtension({ resolver: imageResolver }), createBlockTableExtension()]
       : []),
     ...(settings.features.codeBlockWidget
       ? [createBlockCodeExtension()]
@@ -111,6 +144,9 @@ export function createEditor(
       ...closeBracketsKeymap,
       { key: 'Enter', run: insertNewlineContinueMarkup },
       indentWithTab,
+      // Format shortcuts — placed before standardKeymap so our Mod-b / Mod-i
+      // take precedence over any default single-selection boundary bindings.
+      ...buildFormatKeymap(),
       ...standardKeymap,
       ...historyKeymap,
       ...(settings.features.search ? searchKeymap : []),
@@ -154,9 +190,19 @@ export function createEditor(
       }
     : undefined;
 
+  // When collaboration is enabled, seed CM6's initial doc with the current Y.Text
+  // content. y-codemirror.next's ySync extension only bridges observer events,
+  // so any content that was already in the Y.Text at mount time would otherwise
+  // be invisible in CM6 (doc='' would desync from a non-empty ytext).
+  let initialDoc = initialText;
+  if (collaboration) {
+    const ydoc = collaboration.ydoc as { getText: (name: string) => { toString(): string } };
+    initialDoc = ydoc.getText(collaboration.fragmentName ?? 'document').toString();
+  }
+
   const view = new EditorView({
     state: EditorState.create({
-      doc: collaboration ? '' : initialText,
+      doc: initialDoc,
       selection,
       extensions,
     }),

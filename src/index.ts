@@ -7,6 +7,8 @@ export type {
 } from './events';
 export * from './editorCommands';
 export * from './extensions';
+export { refreshBlockImagesEffect } from './extensions/renderBlockImages';
+export type { BlockImageOptions, ImageResolver } from './extensions/renderBlockImages';
 export * from './utils';
 export {
   DEFAULT_SEARCH_STATE,
