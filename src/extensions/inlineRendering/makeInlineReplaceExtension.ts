@@ -10,6 +10,7 @@ import {
 } from '@codemirror/view';
 import type { InlineRenderingSpec, ReplacementExtension } from './types';
 import { shouldReveal } from './revealStrategy';
+import { checkUpdateAction } from '../../core';
 
 interface DecorationEntry {
   from: number;
@@ -36,7 +37,7 @@ export function makeInlineReplaceExtension(
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        if (checkUpdateAction(update) === 'rebuild') {
           this.decorations = this.buildDecorations(update.view);
         }
       }

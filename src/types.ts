@@ -38,15 +38,32 @@ export interface EditorSelectionRange {
   to: number;
 }
 
+/**
+ * Code block widget interaction mode.
+ *
+ * - `off` — no widget; raw markdown only
+ * - `inline` (default) — fence lines collapse to header/footer widgets, code
+ *   content stays in CM doc flow with full syntax highlighting and direct edit
+ * - `auto` — entire block collapses to a read-only card when cursor is outside;
+ *   reveal raw markdown when cursor enters
+ * - `toggle` — always show as a read-only card; explicit "Code" / "Render"
+ *   button toggles per-block source visibility
+ */
+export type CodeBlockMode = 'off' | 'inline' | 'auto' | 'toggle';
+
 export interface EditorFeatureToggles {
   markdownHighlight: boolean;
   markdownDecorations: boolean;
   inlineRendering: boolean;
   blockImageRendering: boolean;
-  codeBlockWidget: boolean;
+  codeBlockMode: CodeBlockMode;
   mathRendering: boolean;
   search: boolean;
   collaboration: boolean;
+  /** URL-paste-as-link transformation and file-drop hook. Default true. */
+  smartPaste: boolean;
+  /** Admonition / callout block rendering (`> [!note]` etc.). Default true. */
+  admonition: boolean;
 }
 
 export type EditorAppearance = 'light' | 'dark';
@@ -126,6 +143,13 @@ export interface EditorProps {
    * widget retries with backoff up to 3 times before showing a fallback.
    */
   imageResolver?: (src: string) => string | Promise<string>;
+  /**
+   * Optional file-upload handler invoked when the user drops files into the
+   * editor. Receives a `File` and returns the URL plus optional alt text that
+   * will be inserted as `![alt](url)` markdown at the drop position. When
+   * omitted, file drops are preventDefault'd and silently ignored.
+   */
+  uploadFile?: (file: File) => Promise<{ url: string; alt?: string }>;
 }
 
 export interface EditorControl {
@@ -214,9 +238,11 @@ export const DEFAULT_SETTINGS: EditorSettings = {
     markdownDecorations: true,
     inlineRendering: true,
     blockImageRendering: true,
-    codeBlockWidget: true,
+    codeBlockMode: 'inline',
     mathRendering: true,
     search: true,
     collaboration: true,
+    smartPaste: true,
+    admonition: true,
   },
 };

@@ -9,6 +9,7 @@ import { searchKeymap } from '@codemirror/search';
 import { EditorView, drawSelection, dropCursor, highlightActiveLine, keymap } from '@codemirror/view';
 import { classHighlighter } from '@lezer/highlight';
 
+import { collapseOnSelectionFacet, mouseSelectingExtension } from './core';
 import { EditorControlImpl } from './EditorControl';
 import { EditorEventType } from './events';
 import {
@@ -34,6 +35,8 @@ import { createBlockImageExtension } from './extensions/renderBlockImages';
 import { createBlockTableExtension } from './extensions/renderBlockTables';
 import { createCtrlClickLinksExtension } from './extensions/links/ctrlClickLinksExtension';
 import { createLinkTooltipExtension } from './extensions/links/linkTooltipExtension';
+import { createSmartPasteExtension } from './extensions/smartPasteExtension';
+import { createAdmonitionExtension } from './extensions/admonition';
 import { insertNewlineContinueMarkup } from './editorCommands/insertNewlineContinueMarkup';
 import { markdownMathExtension } from './extensions/markdownMathExtension';
 import { markdownFrontMatterExtension } from './extensions/markdownFrontMatterExtension';
@@ -78,6 +81,7 @@ export function createEditor(
     collaboration,
     onEvent,
     imageResolver,
+    uploadFile,
   } = props;
 
   const settingsRuntime = createEditorSettingsExtension(settings);
@@ -89,6 +93,8 @@ export function createEditor(
   ];
 
   const extensions: Extension[] = [
+    collapseOnSelectionFacet.of(true),
+    mouseSelectingExtension,
     history(),
     drawSelection(),
     dropCursor(),
@@ -112,9 +118,10 @@ export function createEditor(
     ...(settings.features.blockImageRendering
       ? [createBlockImageExtension({ resolver: imageResolver }), createBlockTableExtension()]
       : []),
-    ...(settings.features.codeBlockWidget
-      ? [createBlockCodeExtension()]
+    ...(settings.features.codeBlockMode !== 'off'
+      ? [createBlockCodeExtension({ mode: settings.features.codeBlockMode })]
       : []),
+    ...(settings.features.admonition ? [createAdmonitionExtension()] : []),
     ...(onEvent
       ? [
           createCtrlClickLinksExtension((url) => {
@@ -124,6 +131,7 @@ export function createEditor(
       : []),
     createLinkTooltipExtension(),
     createLineAwareClipboardExtension(),
+    ...(settings.features.smartPaste ? [createSmartPasteExtension({ uploadFile })] : []),
     ...(settings.features.collaboration
       ? createCollaborationExtension(collaboration)
       : []),
