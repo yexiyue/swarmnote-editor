@@ -1,4 +1,5 @@
 import { copyLineDown, deleteLine, indentLess, indentMore, redo, selectAll, undo } from '@codemirror/commands';
+import { findNext, findPrevious } from '@codemirror/search';
 import { EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import {
@@ -71,6 +72,8 @@ export class EditorControlImpl implements EditorControl {
       case 'insertLineAfter':
       case 'sortSelectedLines':
       case 'jumpToHash':
+      case 'findNext':
+      case 'findPrevious':
       case 'focus':
       case 'blur':
       case 'scrollSelectionIntoView':
@@ -137,6 +140,10 @@ export class EditorControlImpl implements EditorControl {
         return sortSelectedLines(this.view);
       case 'jumpToHash':
         return jumpToHash(this.view, typeof args[0] === 'string' ? args[0] : '');
+      case 'findNext':
+        return findNext(this.view);
+      case 'findPrevious':
+        return findPrevious(this.view);
       case 'focus':
         return this.focus();
       case 'blur':

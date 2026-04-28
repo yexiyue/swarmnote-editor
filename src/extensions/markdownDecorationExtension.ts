@@ -42,31 +42,42 @@ const markDecorations: Record<string, Decoration> = {
 const markdownTheme = EditorView.theme({
   '.cm-headerLine': {
     fontWeight: '700',
+    lineHeight: '1.3',
   },
   '.cm-h1': {
-    fontSize: '1.6em',
+    fontSize: '1.9em',
+    letterSpacing: '-0.03em',
+    paddingTop: '20px',
+    paddingBottom: '4px',
   },
   '.cm-h2': {
-    fontSize: '1.4em',
+    fontSize: '1.55em',
+    letterSpacing: '-0.02em',
+    paddingTop: '16px',
   },
   '.cm-h3': {
-    fontSize: '1.25em',
+    fontSize: '1.35em',
+    letterSpacing: '-0.01em',
+    paddingTop: '12px',
   },
   '.cm-h4, .cm-h5, .cm-h6': {
     fontSize: '1.1em',
+    paddingTop: '8px',
   },
   '.cm-inlineCode': {
     backgroundColor: 'rgba(127, 127, 127, 0.12)',
     borderRadius: '4px',
     fontFamily: 'monospace',
+    padding: '0.1em 0.4em',
+    border: '1px solid rgba(127, 127, 127, 0.18)',
   },
   '.cm-codeBlock': {
-    backgroundColor: 'rgba(127, 127, 127, 0.08)',
+    backgroundColor: 'rgba(127, 127, 127, 0.1)',
   },
   '.cm-blockQuote': {
-    borderLeft: '3px solid rgba(127, 127, 127, 0.35)',
-    color: 'rgba(127, 127, 127, 0.95)',
-    paddingLeft: '12px',
+    borderLeft: '3px solid rgba(180, 140, 55, 0.6)',
+    paddingLeft: '14px',
+    fontStyle: 'italic',
   },
   '.cm-url': {
     textDecoration: 'underline',
@@ -75,7 +86,7 @@ const markdownTheme = EditorView.theme({
     fontWeight: '700',
   },
   '.cm-highlighted': {
-    backgroundColor: 'rgba(255, 214, 10, 0.35)',
+    backgroundColor: 'rgba(255, 200, 15, 0.32)',
     borderRadius: '2px',
   },
   '.cm-tableHeader, .cm-tableRow, .cm-tableDelimiter': {
@@ -89,12 +100,12 @@ const markdownTheme = EditorView.theme({
     color: 'rgba(127, 127, 127, 0.5)',
   },
   '.cm-frontMatter': {
-    color: 'rgba(127, 127, 127, 0.7)',
+    color: 'rgba(127, 127, 127, 0.65)',
     fontFamily: 'monospace',
-    fontSize: '0.9em',
+    fontSize: '0.88em',
   },
   '.cm-frontMatterMarker': {
-    color: 'rgba(127, 127, 127, 0.5)',
+    color: 'rgba(127, 127, 127, 0.45)',
   },
 });
 

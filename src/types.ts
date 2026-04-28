@@ -26,6 +26,8 @@ export enum EditorCommandType {
   InsertLineAfter = 'insertLineAfter',
   SortSelectedLines = 'sortSelectedLines',
   JumpToHash = 'jumpToHash',
+  FindNext = 'findNext',
+  FindPrevious = 'findPrevious',
   Focus = 'focus',
   Blur = 'blur',
   ScrollSelectionIntoView = 'scrollSelectionIntoView',
