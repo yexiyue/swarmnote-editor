@@ -186,6 +186,14 @@ export interface EditorControl {
 
   getSelectionFormatting(): SelectionFormatting;
 
+  /**
+   * Set the bottom scroll margin in pixels. When the host overlays UI on top
+   * of the editor (e.g. floating toolbars / keyboards on mobile), call this
+   * with the obscured height so CodeMirror keeps the cursor above the overlay
+   * during `scrollIntoView`. 0 disables the margin.
+   */
+  setScrollBottomMargin(px: number): void;
+
   focus(): void;
   blur(): void;
   destroy(): void;

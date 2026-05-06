@@ -1,6 +1,6 @@
 import { copyLineDown, deleteLine, indentLess, indentMore, redo, selectAll, undo } from '@codemirror/commands';
 import { findNext, findPrevious } from '@codemirror/search';
-import { EditorSelection } from '@codemirror/state';
+import { type Compartment, EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import {
   clearSearch,
@@ -42,6 +42,7 @@ export class EditorControlImpl implements EditorControl {
     public readonly view: EditorView,
     private readonly options: {
       settingsRuntime: EditorSettingsExtensionRuntime;
+      scrollMarginsCompartment: Compartment;
       onDestroy?: () => void;
     },
   ) {}
@@ -218,6 +219,14 @@ export class EditorControlImpl implements EditorControl {
 
   getSelectionFormatting() {
     return computeSelectionFormatting(this.view.state);
+  }
+
+  setScrollBottomMargin(px: number): void {
+    this.view.dispatch({
+      effects: this.options.scrollMarginsCompartment.reconfigure(
+        EditorView.scrollMargins.of(() => ({ bottom: px })),
+      ),
+    });
   }
 
   focus(): void {

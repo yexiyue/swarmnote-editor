@@ -1,5 +1,5 @@
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
-import { EditorState, type Extension } from '@codemirror/state';
+import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import { history, historyKeymap, indentWithTab, standardKeymap } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { GFM } from '@lezer/markdown';
@@ -85,6 +85,10 @@ export function createEditor(
   } = props;
 
   const settingsRuntime = createEditorSettingsExtension(settings);
+
+  // Bottom scroll margin: dynamic so the host can grow it when the keyboard
+  // appears. Hosts call `control.setScrollBottomMargin(px)` to reconfigure.
+  const scrollMarginsCompartment = new Compartment();
   const markdownExtensions = [
     ...GFM,
     ...(settings.features.markdownHighlight ? [markdownHighlightExtension] : []),
@@ -95,6 +99,7 @@ export function createEditor(
   const extensions: Extension[] = [
     collapseOnSelectionFacet.of(true),
     mouseSelectingExtension,
+    scrollMarginsCompartment.of(EditorView.scrollMargins.of(() => ({ bottom: 0 }))),
     history(),
     drawSelection(),
     dropCursor(),
@@ -219,6 +224,7 @@ export function createEditor(
 
   const control = new EditorControlImpl(view, {
     settingsRuntime,
+    scrollMarginsCompartment,
     onDestroy: onEvent
       ? () => {
           onEvent({ kind: EditorEventType.Remove });
