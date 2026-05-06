@@ -124,6 +124,15 @@ export interface EditorCollaborationConfig {
   fragmentName?: string;
   localOrigin?: string;
   remoteOrigin?: string;
+  /**
+   * Optional `Awareness` instance from `y-protocols/awareness`, bound to the
+   * same Y.Doc as `ydoc`. When supplied, the editor wires it through
+   * `yCollab(ytext, awareness)` so `y-codemirror.next` renders remote carets
+   * + name tags. Lifecycle (creation, `setLocalState`, `destroy`, network
+   * push/apply) is the caller's responsibility — the editor only reads it.
+   * Typed as `unknown` to avoid hard-depending on `y-protocols` here.
+   */
+  awareness?: unknown;
 }
 
 export interface EditorProps {
