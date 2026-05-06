@@ -86,9 +86,10 @@ export function createEditor(
 
   const settingsRuntime = createEditorSettingsExtension(settings);
 
-  // Bottom scroll margin: dynamic so the host can grow it when the keyboard
-  // appears. Hosts call `control.setScrollBottomMargin(px)` to reconfigure.
+  // Two compartments so setScrollBottomMargin can swap scrollMargins +
+  // content padding-bottom atomically. See EditorControl.setScrollBottomMargin.
   const scrollMarginsCompartment = new Compartment();
+  const contentPaddingCompartment = new Compartment();
   const markdownExtensions = [
     ...GFM,
     ...(settings.features.markdownHighlight ? [markdownHighlightExtension] : []),
@@ -100,6 +101,7 @@ export function createEditor(
     collapseOnSelectionFacet.of(true),
     mouseSelectingExtension,
     scrollMarginsCompartment.of(EditorView.scrollMargins.of(() => ({ bottom: 0 }))),
+    contentPaddingCompartment.of(EditorView.contentAttributes.of({ style: 'padding-bottom: 0px' })),
     history(),
     drawSelection(),
     dropCursor(),
@@ -225,6 +227,7 @@ export function createEditor(
   const control = new EditorControlImpl(view, {
     settingsRuntime,
     scrollMarginsCompartment,
+    contentPaddingCompartment,
     onDestroy: onEvent
       ? () => {
           onEvent({ kind: EditorEventType.Remove });

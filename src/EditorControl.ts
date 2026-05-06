@@ -38,11 +38,14 @@ import type {
 import { createSelectionRange } from './utils';
 
 export class EditorControlImpl implements EditorControl {
+  private lastScrollBottomMargin = 0;
+
   constructor(
     public readonly view: EditorView,
     private readonly options: {
       settingsRuntime: EditorSettingsExtensionRuntime;
       scrollMarginsCompartment: Compartment;
+      contentPaddingCompartment: Compartment;
       onDestroy?: () => void;
     },
   ) {}
@@ -222,10 +225,17 @@ export class EditorControlImpl implements EditorControl {
   }
 
   setScrollBottomMargin(px: number): void {
+    if (px === this.lastScrollBottomMargin) return;
+    this.lastScrollBottomMargin = px;
     this.view.dispatch({
-      effects: this.options.scrollMarginsCompartment.reconfigure(
-        EditorView.scrollMargins.of(() => ({ bottom: px })),
-      ),
+      effects: [
+        this.options.scrollMarginsCompartment.reconfigure(
+          EditorView.scrollMargins.of(() => ({ bottom: px })),
+        ),
+        this.options.contentPaddingCompartment.reconfigure(
+          EditorView.contentAttributes.of({ style: `padding-bottom: ${px}px` }),
+        ),
+      ],
     });
   }
 
