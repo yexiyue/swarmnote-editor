@@ -24,6 +24,19 @@ export interface ReplacementExtension {
     node: SyntaxNodeRef,
     state: EditorState,
   ): RevealStrategy | boolean;
+
+  /**
+   * Override the [from, to] range used when evaluating reveal strategy.
+   * Default: same as decoration range.
+   *
+   * Use this to expand reveal judgement to a parent node (e.g. EmphasisMark
+   * conceal should reveal whenever the cursor is anywhere within the
+   * StrongEmphasis parent, not just on the `**` characters themselves).
+   */
+  getRevealRange?(
+    node: SyntaxNodeRef,
+    state: EditorState,
+  ): [number, number] | null;
 }
 
 export interface InlineRenderingSpec {

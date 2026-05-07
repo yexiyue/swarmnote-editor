@@ -12,8 +12,8 @@ import type { EditorThemeConfig } from '../types';
 const lightDefaults = {
   background: 'hsl(40, 18%, 99%)',
   foreground: 'hsl(28, 10%, 14%)',
-  selection: 'hsl(40, 72%, 46%, 0.2)',
-  activeLine: 'hsl(40, 18%, 96%)',
+  selection: 'hsl(40, 72%, 46%, 0.30)',
+  activeLine: 'transparent',
   border: 'hsl(30, 10%, 87%)',
   codeBackground: 'hsl(33, 10%, 92%)',
   heading: 'hsl(28, 10%, 14%)',
@@ -39,8 +39,8 @@ const lightDefaults = {
 const darkDefaults = {
   background: 'hsl(25, 6%, 10%)',
   foreground: 'hsl(36, 10%, 93%)',
-  selection: 'hsl(40, 72%, 52%, 0.25)',
-  activeLine: 'hsl(24, 5%, 14%)',
+  selection: 'hsl(40, 72%, 52%, 0.35)',
+  activeLine: 'transparent',
   border: 'hsl(25, 4%, 22%)',
   codeBackground: 'hsl(25, 4%, 17%)',
   heading: 'hsl(36, 10%, 93%)',
@@ -99,7 +99,7 @@ export function createEditorTheme(config: EditorThemeConfig): Extension {
         borderRight: `1px solid ${c.border}`,
       },
       '.cm-activeLineGutter': {
-        backgroundColor: c.activeLine,
+        backgroundColor: 'transparent',
       },
       // Markdown decorations
       '.cm-headerLine': {
@@ -112,6 +112,9 @@ export function createEditorTheme(config: EditorThemeConfig): Extension {
         backgroundColor: c.codeBackground,
       },
       '.cm-url': {
+        color: c.link,
+      },
+      '.cm-ext-link': {
         color: c.link,
       },
       '.cm-blockQuote': {

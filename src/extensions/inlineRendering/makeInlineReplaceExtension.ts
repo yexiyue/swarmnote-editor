@@ -72,7 +72,11 @@ export function makeInlineReplaceExtension(
                 decoTo = node.to;
               }
 
-              if (hideOnSelection && shouldReveal(view.state, decoFrom, decoTo, strategy)) {
+              const revealRangeOverride = spec.getRevealRange?.(node, view.state);
+              const revealFrom = revealRangeOverride ? revealRangeOverride[0] : decoFrom;
+              const revealTo = revealRangeOverride ? revealRangeOverride[1] : decoTo;
+
+              if (hideOnSelection && shouldReveal(view.state, revealFrom, revealTo, strategy)) {
                 return;
               }
 

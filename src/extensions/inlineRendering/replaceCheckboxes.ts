@@ -12,5 +12,16 @@ export const replaceCheckboxes: InlineRenderingSpec = {
     getRevealStrategy() {
       return 'active';
     },
+    // Share reveal range with replaceBulletLists so the dash and checkbox
+    // reveal together: cursor anywhere in `- [ ]` prefix → both reveal,
+    // cursor in the body text → both stay concealed (widgets visible).
+    getRevealRange(node, state) {
+      const line = state.doc.lineAt(node.from);
+      const taskMatch = line.text.match(/^(\s*[-*]\s\[[ xX]\])/);
+      if (taskMatch) {
+        return [line.from, line.from + taskMatch[0].length];
+      }
+      return null;
+    },
   },
 };

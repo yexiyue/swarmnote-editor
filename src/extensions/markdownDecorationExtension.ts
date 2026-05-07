@@ -8,8 +8,20 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 
+const taskCompletedDecoration = Decoration.line({ attributes: { class: 'cm-taskCompleted' } });
+const TASK_COMPLETED_LINE = /^\s*[-*]\s\[[xX]\]/;
+
+// Per-depth blockquote line decorations. Depth 0 = outer, 1 = nested once, etc.
+// Using multiple `box-shadow: inset` rules in CSS to draw stacked vertical bars
+// for nested blockquotes (matches Obsidian's two-bar look on `> > nested`).
+const blockquoteLineDecorations = [
+  Decoration.line({ attributes: { class: 'cm-blockQuote cm-blockQuote-d0' } }),
+  Decoration.line({ attributes: { class: 'cm-blockQuote cm-blockQuote-d1' } }),
+  Decoration.line({ attributes: { class: 'cm-blockQuote cm-blockQuote-d2' } }),
+  Decoration.line({ attributes: { class: 'cm-blockQuote cm-blockQuote-d3' } }),
+];
+
 const lineDecorations: Record<string, Decoration> = {
-  Blockquote: Decoration.line({ attributes: { class: 'cm-blockQuote' } }),
   OrderedList: Decoration.line({ attributes: { class: 'cm-orderedList' } }),
   BulletList: Decoration.line({ attributes: { class: 'cm-unorderedList' } }),
   ListItem: Decoration.line({ attributes: { class: 'cm-listItem' } }),
@@ -37,6 +49,8 @@ const markDecorations: Record<string, Decoration> = {
   TaskMarker: Decoration.mark({ attributes: { class: 'cm-taskMarker' } }),
   HorizontalRule: Decoration.mark({ attributes: { class: 'cm-hr' } }),
   Highlight: Decoration.mark({ attributes: { class: 'cm-highlighted' } }),
+  HeaderMark: Decoration.mark({ attributes: { class: 'cm-headerMark' } }),
+  QuoteMark: Decoration.mark({ attributes: { class: 'cm-quoteMark' } }),
 };
 
 const markdownTheme = EditorView.theme({
@@ -47,13 +61,13 @@ const markdownTheme = EditorView.theme({
   '.cm-h1': {
     fontSize: '1.9em',
     letterSpacing: '-0.03em',
-    paddingTop: '20px',
+    paddingTop: '12px',
     paddingBottom: '4px',
   },
   '.cm-h2': {
     fontSize: '1.55em',
     letterSpacing: '-0.02em',
-    paddingTop: '16px',
+    paddingTop: '12px',
   },
   '.cm-h3': {
     fontSize: '1.35em',
@@ -74,13 +88,59 @@ const markdownTheme = EditorView.theme({
   '.cm-codeBlock': {
     backgroundColor: 'rgba(127, 127, 127, 0.1)',
   },
-  '.cm-blockQuote': {
-    borderLeft: '3px solid rgba(180, 140, 55, 0.6)',
-    paddingLeft: '14px',
-    fontStyle: 'italic',
+  // Blockquote bars are drawn via background-image gradients (one per depth bar).
+  // Each bar is 2px wide, anchored at fixed x positions: 0, 14px, 28px, 42px.
+  '.cm-blockQuote-d0': {
+    backgroundImage:
+      'linear-gradient(rgba(180, 140, 55, 0.6), rgba(180, 140, 55, 0.6))',
+    backgroundSize: '2px 100%',
+    backgroundPosition: '0 0',
+    backgroundRepeat: 'no-repeat',
+    paddingLeft: '10px',
+  },
+  '.cm-blockQuote-d1': {
+    backgroundImage:
+      'linear-gradient(rgba(180, 140, 55, 0.6), rgba(180, 140, 55, 0.6)), ' +
+      'linear-gradient(rgba(180, 140, 55, 0.6), rgba(180, 140, 55, 0.6))',
+    backgroundSize: '2px 100%, 2px 100%',
+    backgroundPosition: '0 0, 14px 0',
+    backgroundRepeat: 'no-repeat, no-repeat',
+    paddingLeft: '24px',
+  },
+  '.cm-blockQuote-d2': {
+    backgroundImage:
+      'linear-gradient(rgba(180, 140, 55, 0.6), rgba(180, 140, 55, 0.6)), ' +
+      'linear-gradient(rgba(180, 140, 55, 0.6), rgba(180, 140, 55, 0.6)), ' +
+      'linear-gradient(rgba(180, 140, 55, 0.6), rgba(180, 140, 55, 0.6))',
+    backgroundSize: '2px 100%, 2px 100%, 2px 100%',
+    backgroundPosition: '0 0, 14px 0, 28px 0',
+    backgroundRepeat: 'no-repeat, no-repeat, no-repeat',
+    paddingLeft: '38px',
+  },
+  '.cm-blockQuote-d3': {
+    backgroundImage:
+      'linear-gradient(rgba(180, 140, 55, 0.6), rgba(180, 140, 55, 0.6)), ' +
+      'linear-gradient(rgba(180, 140, 55, 0.6), rgba(180, 140, 55, 0.6)), ' +
+      'linear-gradient(rgba(180, 140, 55, 0.6), rgba(180, 140, 55, 0.6)), ' +
+      'linear-gradient(rgba(180, 140, 55, 0.6), rgba(180, 140, 55, 0.6))',
+    backgroundSize: '2px 100%, 2px 100%, 2px 100%, 2px 100%',
+    backgroundPosition: '0 0, 14px 0, 28px 0, 42px 0',
+    backgroundRepeat: 'no-repeat, no-repeat, no-repeat, no-repeat',
+    paddingLeft: '52px',
   },
   '.cm-url': {
     textDecoration: 'underline',
+  },
+  '.cm-headerMark': {
+    opacity: '0.35',
+    marginRight: '0.25em',
+  },
+  '.cm-quoteMark': {
+    opacity: '0.45',
+  },
+  '.cm-taskCompleted, .cm-taskCompleted span': {
+    textDecoration: 'line-through',
+    color: 'rgba(127, 127, 127, 0.75)',
   },
   '.cm-taskMarker': {
     fontWeight: '700',
@@ -103,6 +163,8 @@ const markdownTheme = EditorView.theme({
     color: 'rgba(127, 127, 127, 0.65)',
     fontFamily: 'monospace',
     fontSize: '0.88em',
+    borderLeft: '2px solid rgba(127, 127, 127, 0.2)',
+    paddingLeft: '8px',
   },
   '.cm-frontMatterMarker': {
     color: 'rgba(127, 127, 127, 0.45)',
@@ -148,6 +210,28 @@ function computeDecorations(view: EditorView): DecorationSet {
         const lineDecoration = lineDecorations[node.name];
         if (lineDecoration) {
           pushLineDecorations(decorations, view, visibleFrom, visibleTo, lineDecoration);
+        }
+
+        // Blockquote with depth awareness: outer = single bar, nested = two bars.
+        if (node.name === 'Blockquote') {
+          let depth = 0;
+          let p = node.node.parent;
+          while (p) {
+            if (p.name === 'Blockquote') depth++;
+            p = p.parent;
+          }
+          const idx = Math.min(depth, blockquoteLineDecorations.length - 1);
+          pushLineDecorations(decorations, view, visibleFrom, visibleTo, blockquoteLineDecorations[idx]);
+        }
+
+        // Apply line-through + muted color when the ListItem starts with `[x]`.
+        // We check on ListItem (not TaskMarker) so the decoration covers the
+        // whole line, including text after the marker.
+        if (node.name === 'ListItem') {
+          const lineText = view.state.doc.lineAt(node.from).text;
+          if (TASK_COMPLETED_LINE.test(lineText)) {
+            pushLineDecorations(decorations, view, visibleFrom, visibleTo, taskCompletedDecoration);
+          }
         }
 
         const markDecoration = markDecorations[node.name];
