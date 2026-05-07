@@ -49,6 +49,10 @@ export function toggleStrike(view: EditorView): void {
   toggleInlineMarker(view, '~~');
 }
 
+export function toggleHighlight(view: EditorView): void {
+  toggleInlineMarker(view, '==');
+}
+
 export function toggleHeading(view: EditorView, level = 2): void {
   const { from } = view.state.selection.main;
   const line = view.state.doc.lineAt(from);

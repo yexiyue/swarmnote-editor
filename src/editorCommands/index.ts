@@ -3,9 +3,11 @@ export {
   toggleBold,
   toggleCode,
   toggleHeading,
+  toggleHighlight,
   toggleItalic,
   toggleStrike,
 } from './markdown';
+export { toggleBlockquote } from './blockquote';
 export { toggleList } from './list';
 export {
   insertCodeBlock,

@@ -18,9 +18,11 @@ import {
   insertImage,
   insertLink,
   insertTable,
+  toggleBlockquote,
   toggleBold,
   toggleCode,
   toggleHeading,
+  toggleHighlight,
   toggleItalic,
   toggleList,
   toggleStrike,
@@ -58,6 +60,8 @@ export class EditorControlImpl implements EditorControl {
       case 'toggleItalic':
       case 'toggleCode':
       case 'toggleStrike':
+      case 'toggleHighlight':
+      case 'toggleBlockquote':
       case 'toggleHeading':
       case 'cycleHeading':
       case 'toggleOrderedList':
@@ -101,6 +105,10 @@ export class EditorControlImpl implements EditorControl {
         return toggleCode(this.view);
       case 'toggleStrike':
         return toggleStrike(this.view);
+      case 'toggleHighlight':
+        return toggleHighlight(this.view);
+      case 'toggleBlockquote':
+        return toggleBlockquote(this.view);
       case 'toggleHeading':
         return toggleHeading(this.view, typeof args[0] === 'number' ? args[0] : 2);
       case 'cycleHeading':

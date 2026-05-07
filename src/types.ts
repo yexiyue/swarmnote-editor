@@ -8,6 +8,8 @@ export enum EditorCommandType {
   ToggleItalic = 'toggleItalic',
   ToggleCode = 'toggleCode',
   ToggleStrike = 'toggleStrike',
+  ToggleHighlight = 'toggleHighlight',
+  ToggleBlockquote = 'toggleBlockquote',
   ToggleHeading = 'toggleHeading',
   CycleHeading = 'cycleHeading',
   ToggleOrderedList = 'toggleOrderedList',
