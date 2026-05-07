@@ -20,26 +20,28 @@ async function loadKaTeX() {
 class MathWidget extends WidgetType {
   constructor(
     private readonly tex: string,
-    private readonly displayMode: boolean,
+    private readonly nodeFrom: number,
+    private readonly nodeTo: number,
   ) {
     super();
   }
 
   eq(other: MathWidget) {
-    return this.tex === other.tex && this.displayMode === other.displayMode;
+    return (
+      this.tex === other.tex &&
+      this.nodeFrom === other.nodeFrom &&
+      this.nodeTo === other.nodeTo
+    );
   }
 
-  toDOM() {
-    const container = document.createElement(this.displayMode ? 'div' : 'span');
-    container.className = this.displayMode ? 'cm-math-block' : 'cm-math-inline';
+  toDOM(view: EditorView) {
+    const container = document.createElement('span');
+    container.className = 'cm-math-inline';
 
     void loadKaTeX().then((katex) => {
       if (!container.isConnected) return;
       try {
-        katex.render(this.tex, container, {
-          displayMode: this.displayMode,
-          throwOnError: false,
-        });
+        katex.render(this.tex, container, { displayMode: false, throwOnError: false });
       } catch {
         container.textContent = this.tex;
         container.classList.add('cm-math-error');
@@ -49,30 +51,35 @@ class MathWidget extends WidgetType {
     // Placeholder while loading
     container.textContent = this.tex;
 
+    // Click anywhere on the rendered formula → place caret inside (between
+    // the `$` delimiters) to trigger reveal of the source.
+    container.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const contentFrom = this.nodeFrom + 1;
+      const contentTo = Math.max(contentFrom, this.nodeTo - 1);
+      view.dispatch({
+        selection: { anchor: contentFrom, head: contentTo },
+        scrollIntoView: true,
+      });
+      view.focus();
+    });
+
     return container;
   }
 
-  ignoreEvent() {
-    return true;
+  ignoreEvent(event: Event) {
+    return event.type !== 'mousedown';
   }
 }
 
-function extractMathContent(node: SyntaxNodeRef, state: EditorState): { tex: string; displayMode: boolean } | null {
+function extractInlineMath(node: SyntaxNodeRef, state: EditorState): string | null {
+  if (node.name !== 'InlineMath') return null;
+  // BlockMath is handled separately by `createBlockMathExtension` (block
+  // decorations require a StateField; this ViewPlugin path can't provide
+  // them).
   const text = state.sliceDoc(node.from, node.to);
-
-  if (node.name === 'BlockMath') {
-    // Strip $$ delimiters
-    const inner = text.replace(/^\$\$\s*/, '').replace(/\s*\$\$$/, '');
-    return { tex: inner, displayMode: true };
-  }
-
-  if (node.name === 'InlineMath') {
-    // Strip $ delimiters
-    const inner = text.slice(1, -1);
-    return { tex: inner, displayMode: false };
-  }
-
-  return null;
+  return text.slice(1, -1); // strip the surrounding `$`
 }
 
 export const mathTheme = EditorView.theme({
@@ -92,15 +99,15 @@ export const mathTheme = EditorView.theme({
 });
 
 export const replaceMathFormulas: InlineRenderingSpec = {
-  nodeNames: ['InlineMath', 'BlockMath'],
+  nodeNames: ['InlineMath'],
   extension: {
     createDecoration(node: SyntaxNodeRef, state: EditorState) {
-      const result = extractMathContent(node, state);
-      if (!result || !result.tex.trim()) return null;
-      return new MathWidget(result.tex, result.displayMode);
+      const tex = extractInlineMath(node, state);
+      if (!tex || !tex.trim()) return null;
+      return new MathWidget(tex, node.from, node.to);
     },
-    getRevealStrategy(node): RevealStrategy {
-      return node.name === 'BlockMath' ? 'line' : 'active';
+    getRevealStrategy(): RevealStrategy {
+      return 'active';
     },
   },
 };

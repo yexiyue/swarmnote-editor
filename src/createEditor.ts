@@ -34,6 +34,7 @@ import {
 } from './extensions';
 import { createBlockCodeExtension } from './extensions/renderBlockCode';
 import { createBlockImageExtension } from './extensions/renderBlockImages';
+import { createBlockMathExtension } from './extensions/renderBlockMath';
 import { createBlockTableExtension } from './extensions/renderBlockTables';
 import { createCtrlClickLinksExtension } from './extensions/links/ctrlClickLinksExtension';
 import { createLinkTooltipExtension } from './extensions/links/linkTooltipExtension';
@@ -129,6 +130,7 @@ export function createEditor(
     ...(settings.features.blockImageRendering
       ? [createBlockImageExtension({ resolver: imageResolver }), createBlockTableExtension()]
       : []),
+    ...(settings.features.mathRendering ? [createBlockMathExtension()] : []),
     ...(settings.features.codeBlockMode !== 'off'
       ? [createBlockCodeExtension({ mode: settings.features.codeBlockMode })]
       : []),
