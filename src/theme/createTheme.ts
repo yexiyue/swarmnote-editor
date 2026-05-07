@@ -63,10 +63,32 @@ const darkDefaults = {
   namespace: '#4EC9B0',
 };
 
+// Table widget tokens — values referenced by `renderBlockTables.ts` via
+// `var(--cm-table-*)`. Defined here so theme switching auto-updates the
+// widget colors without a CM transaction.
+const lightTableTokens = {
+  '--cm-table-border': 'hsl(30, 10%, 87%)',
+  '--cm-table-header-bg': 'hsl(33, 10%, 92%)',
+  '--cm-table-selection-border': 'hsl(40, 72%, 46%)',
+  '--cm-table-selection-bg': 'hsla(40, 72%, 46%, 0.10)',
+  '--cm-table-affordance-fg': 'hsla(28, 10%, 14%, 0.6)',
+  '--cm-table-affordance-bg-hover': 'hsl(33, 10%, 88%)',
+};
+
+const darkTableTokens = {
+  '--cm-table-border': 'hsl(25, 4%, 22%)',
+  '--cm-table-header-bg': 'hsl(25, 4%, 17%)',
+  '--cm-table-selection-border': 'hsl(40, 72%, 52%)',
+  '--cm-table-selection-bg': 'hsla(40, 72%, 52%, 0.18)',
+  '--cm-table-affordance-fg': 'hsla(36, 10%, 93%, 0.6)',
+  '--cm-table-affordance-bg-hover': 'hsl(25, 5%, 21%)',
+};
+
 export function createEditorTheme(config: EditorThemeConfig): Extension {
   const isDark = config.appearance === 'dark';
   const defaults = isDark ? darkDefaults : lightDefaults;
   const c = { ...defaults, ...config.colors };
+  const tableTokens = isDark ? darkTableTokens : lightTableTokens;
   const fontFamily = config.fontFamily ?? 'system-ui, sans-serif';
   const fontSize = config.fontSize ?? 16;
 
@@ -77,6 +99,7 @@ export function createEditorTheme(config: EditorThemeConfig): Extension {
         backgroundColor: c.background,
         fontFamily,
         fontSize: `${fontSize}px`,
+        ...tableTokens,
       },
       '&.cm-focused': {
         outline: 'none',

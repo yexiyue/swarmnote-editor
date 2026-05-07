@@ -11,7 +11,7 @@ import { classHighlighter } from '@lezer/highlight';
 
 import { collapseOnSelectionFacet, mouseSelectingExtension } from './core';
 import { EditorControlImpl } from './EditorControl';
-import { EditorEventType } from './events';
+import { editorEventCallback, EditorEventType } from './events';
 import {
   computeSelectionFormatting,
   cycleHeading,
@@ -175,6 +175,8 @@ export function createEditor(
   ];
 
   if (onEvent) {
+    // Expose onEvent to widgets (e.g. table cell context menu) via facet.
+    extensions.push(editorEventCallback.of(onEvent));
     extensions.push(
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {

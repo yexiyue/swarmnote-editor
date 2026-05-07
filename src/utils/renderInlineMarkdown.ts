@@ -1,12 +1,15 @@
 /**
  * Lightweight inline markdown renderer for table cells.
  *
- * Supports: **bold**, __bold__, *italic*, _italic_, ~~strike~~, `code`,
- * [text](url). All HTML is escaped before pattern replacement so user input
- * cannot inject tags. URLs are filtered to a safe scheme allowlist.
+ * Supports: **bold**, __bold__, *italic*, _italic_, ~~strike~~, ==highlight==,
+ * `code`, [text](url), ![alt](url), $latex$ (rendered via KaTeX downstream).
+ * All HTML is escaped before pattern replacement so user input cannot inject
+ * tags. URLs are filtered to a safe scheme allowlist.
  *
- * Wikilinks `[[note]]` are intentionally NOT supported in v0.2 — that lands in
- * v0.3 via a lezer-markdown node extension (see project_editor_wikilink_v03).
+ * Inline math returns a placeholder span (`<span class="cm-table-math"
+ * data-tex="...">`) — the consumer (e.g. `renderBlockTables`) is expected to
+ * call `katex.render` on each span asynchronously after insertion. Wikilinks
+ * `[[note]]` are still NOT supported.
  */
 
 const HTML_ENTITIES: Record<string, string> = {
@@ -31,6 +34,8 @@ function isSafeUrl(url: string): boolean {
 // with anything in user-escaped HTML.
 const CODE_OPEN = '\u{E000}';
 const CODE_CLOSE = '\u{E001}';
+const MATH_OPEN = '\u{E002}';
+const MATH_CLOSE = '\u{E003}';
 
 function applyEmphasis(html: string, mark: '*' | '_'): string {
   const escaped = mark === '*' ? '\\*' : '_';
@@ -54,6 +59,20 @@ export function renderInlineMarkdown(raw: string): string {
     return `${CODE_OPEN}${codeSpans.length - 1}${CODE_CLOSE}`;
   });
 
+  // Protect inline math `$...$` likewise — `$x*y$` must not have its `*`
+  // chewed by the emphasis pass.
+  const mathSpans: string[] = [];
+  html = html.replace(/\$([^$\n]+)\$/g, (_, tex: string) => {
+    mathSpans.push(tex);
+    return `${MATH_OPEN}${mathSpans.length - 1}${MATH_CLOSE}`;
+  });
+
+  // Images first so the leading `!` doesn't get consumed by the link regex.
+  html = html.replace(/!\[([^\]\n]*)\]\(([^\s)]+)\)/g, (match, alt: string, url: string) => {
+    if (!isSafeUrl(url)) return match;
+    return `<img src="${url}" alt="${alt}">`;
+  });
+
   // Links — url comes from escaped html so `&` already became `&amp;`.
   html = html.replace(/\[([^\]\n]+)\]\(([^\s)]+)\)/g, (match, text: string, url: string) => {
     if (!isSafeUrl(url)) return match;
@@ -64,10 +83,19 @@ export function renderInlineMarkdown(raw: string): string {
   html = applyEmphasis(html, '_');
 
   html = html.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
+  html = html.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
 
   // Restore inline code last.
   const restoreRe = new RegExp(`${CODE_OPEN}(\\d+)${CODE_CLOSE}`, 'gu');
   html = html.replace(restoreRe, (_, idx: string) => `<code>${codeSpans[Number(idx)]}</code>`);
+
+  // Restore inline math as KaTeX-pending placeholders. The consumer hydrates
+  // these via `katex.render(tex, span)` after insertion.
+  const mathRestoreRe = new RegExp(`${MATH_OPEN}(\\d+)${MATH_CLOSE}`, 'gu');
+  html = html.replace(mathRestoreRe, (_, idx: string) => {
+    const tex = mathSpans[Number(idx)] ?? '';
+    return `<span class="cm-table-math" data-tex="${escapeHtml(tex)}">${escapeHtml(`$${tex}$`)}</span>`;
+  });
 
   return html;
 }

@@ -4,6 +4,9 @@ export { EditorEventType } from './events';
 export type {
   EditorEvent,
   EditorSelectionFormattingChangeEvent,
+  EditorTableContextMenuEvent,
+  TableAlignment,
+  TableContextMenuActions,
 } from './events';
 export * from './editorCommands';
 export * from './extensions';
