@@ -60,6 +60,11 @@ export interface EditorFeatureToggles {
   markdownDecorations: boolean;
   inlineRendering: boolean;
   blockImageRendering: boolean;
+  /**
+   * Render native HTML embedded in markdown (`<img>`, `<picture>`, `<figure>`,
+   * `<details>`, etc.) via DOMPurify-sanitized innerHTML. Default true.
+   */
+  rawHtmlRendering: boolean;
   codeBlockMode: CodeBlockMode;
   mathRendering: boolean;
   search: boolean;
@@ -260,6 +265,7 @@ export const DEFAULT_SETTINGS: EditorSettings = {
     markdownDecorations: true,
     inlineRendering: true,
     blockImageRendering: true,
+    rawHtmlRendering: true,
     codeBlockMode: 'inline',
     mathRendering: true,
     search: true,

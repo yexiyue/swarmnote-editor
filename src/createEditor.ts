@@ -36,10 +36,15 @@ import { createBlockCodeExtension } from './extensions/renderBlockCode';
 import { createBlockImageExtension } from './extensions/renderBlockImages';
 import { createBlockMathExtension } from './extensions/renderBlockMath';
 import { createBlockTableExtension } from './extensions/renderBlockTables';
+import { createRawHtmlExtension } from './extensions/renderRawHtml';
 import { createCtrlClickLinksExtension } from './extensions/links/ctrlClickLinksExtension';
 import { createLinkTooltipExtension } from './extensions/links/linkTooltipExtension';
 import { createSmartPasteExtension } from './extensions/smartPasteExtension';
-import { createAdmonitionExtension } from './extensions/admonition';
+import {
+  createAdmonitionExtension,
+  GFM_TYPES,
+  OBSIDIAN_TYPES,
+} from './extensions/admonition';
 import { insertNewlineContinueMarkup } from './editorCommands/insertNewlineContinueMarkup';
 import { markdownMathExtension } from './extensions/markdownMathExtension';
 import { markdownFrontMatterExtension } from './extensions/markdownFrontMatterExtension';
@@ -130,11 +135,16 @@ export function createEditor(
     ...(settings.features.blockImageRendering
       ? [createBlockImageExtension({ resolver: imageResolver }), createBlockTableExtension()]
       : []),
+    ...(settings.features.rawHtmlRendering
+      ? [createRawHtmlExtension({ resolver: imageResolver })]
+      : []),
     ...(settings.features.mathRendering ? [createBlockMathExtension()] : []),
     ...(settings.features.codeBlockMode !== 'off'
       ? [createBlockCodeExtension({ mode: settings.features.codeBlockMode })]
       : []),
-    ...(settings.features.admonition ? [createAdmonitionExtension()] : []),
+    ...(settings.features.admonition
+      ? [createAdmonitionExtension({ types: { ...GFM_TYPES, ...OBSIDIAN_TYPES } })]
+      : []),
     ...(onEvent
       ? [
           createCtrlClickLinksExtension((url) => {

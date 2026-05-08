@@ -12,6 +12,11 @@ export * from './editorCommands';
 export * from './extensions';
 export { refreshBlockImagesEffect } from './extensions/renderBlockImages';
 export type { BlockImageOptions, ImageResolver } from './extensions/renderBlockImages';
+export {
+  createRawHtmlExtension,
+  refreshRawHtmlEffect,
+} from './extensions/renderRawHtml';
+export type { RawHtmlOptions } from './extensions/renderRawHtml';
 export { setTableSourceMode } from './extensions/renderBlockTables';
 export { setCodeBlockSourceMode } from './extensions/renderBlockCode';
 export type { BlockCodeOptions } from './extensions/renderBlockCode';

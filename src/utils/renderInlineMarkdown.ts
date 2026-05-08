@@ -36,6 +36,7 @@ const CODE_OPEN = '\u{E000}';
 const CODE_CLOSE = '\u{E001}';
 const MATH_OPEN = '\u{E002}';
 const MATH_CLOSE = '\u{E003}';
+const BR_TOKEN = '\u{E004}';
 
 function applyEmphasis(html: string, mark: '*' | '_'): string {
   const escaped = mark === '*' ? '\\*' : '_';
@@ -49,7 +50,10 @@ function applyEmphasis(html: string, mark: '*' | '_'): string {
 }
 
 export function renderInlineMarkdown(raw: string): string {
-  let html = escapeHtml(raw);
+  // Pull `<br>` / `<br/>` / `<br />` out before HTML-escaping so users can
+  // force line breaks inside table cells (markdown tables have no multi-line
+  // cell syntax otherwise). Restored at the end below.
+  let html = escapeHtml(raw.replace(/<br\s*\/?>/gi, BR_TOKEN));
 
   // Protect inline code spans before other transforms — `code` content must
   // not be re-parsed for emphasis or link syntax.
@@ -96,6 +100,9 @@ export function renderInlineMarkdown(raw: string): string {
     const tex = mathSpans[Number(idx)] ?? '';
     return `<span class="cm-table-math" data-tex="${escapeHtml(tex)}">${escapeHtml(`$${tex}$`)}</span>`;
   });
+
+  // Restore `<br>` line breaks last.
+  html = html.split(BR_TOKEN).join('<br>');
 
   return html;
 }
