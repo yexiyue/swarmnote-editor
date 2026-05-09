@@ -1,0 +1,20 @@
+{
+  "name": "swarmnote-editor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Workspace root for the swarmnote-editor monorepo. The actual packages live under packages/.",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "tsdown": "^0.6.0",
+    "typescript": "~5.9.2"
+  },
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10"
+  }
+}
