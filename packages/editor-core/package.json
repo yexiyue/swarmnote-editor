@@ -1,0 +1,53 @@
+{
+  "name": "@swarmnote/editor-core",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "Markdown-first, live-preview editor core built on CodeMirror 6.",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc --noEmit",
+    "prepack": "pnpm build"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.20.1",
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/lang-markdown": "^6.5.0",
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/language-data": "^6.5.2",
+    "@codemirror/legacy-modes": "^6.5.2",
+    "@codemirror/search": "^6.6.0",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.41.0",
+    "@lezer/common": "^1.2.3",
+    "@lezer/highlight": "^1.2.3",
+    "@lezer/markdown": "^1.6.3",
+    "dompurify": "^3.4.2",
+    "katex": "^0.16.45",
+    "y-codemirror.next": "^0.3.5",
+    "yjs": "^13.6.20"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.2"
+  }
+}
