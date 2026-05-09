@@ -8,8 +8,6 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "isolatedModules": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "verbatimModuleSyntax": false

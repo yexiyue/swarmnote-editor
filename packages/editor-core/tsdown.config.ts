@@ -6,12 +6,8 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   clean: true,
-  external: [
-    /^@codemirror\//,
-    /^@lezer\//,
-    "yjs",
-    "y-codemirror.next",
-    "dompurify",
-    "katex",
-  ],
+  // Mark all runtime deps as external so the bundle stays slim and
+  // host repos share their own copies of CodeMirror / yjs.
+  // tsdown auto-externalizes anything in `dependencies` / `peerDependencies`,
+  // so no explicit list is needed once package.json declares them all.
 });
