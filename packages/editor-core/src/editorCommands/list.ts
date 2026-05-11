@@ -1,19 +1,39 @@
 import { EditorSelection } from '@codemirror/state';
+/**
+ * 列表命令
+ * 
+ * **功能：**
+ * 切换选中文本或当前行的列表类型（无序列表、有序列表、任务列表）。
+ */
 import type { EditorView } from '@codemirror/view';
 import type { ListType } from '../types';
 
+/** 无序列表正则：匹配行首缩进 + `-` 或 `*` + 空格（排除任务列表） */
 const bulletedRegex = /^(\s*)([-*])\s(?!\[[ xX]+\]\s)/;
+/** 任务列表正则：匹配行首缩进 + `-` 或 `*` + `[ ]` 或 `[x]` + 空格 */
 const checklistRegex = /^(\s*)([-*])\s\[[ xX]+\]\s/;
+/** 有序列表正则：匹配行首缩进 + 数字 + `.` + 空格 */
 const numberedRegex = /^(\s*)(\d+)\.\s/;
 
+/** 任意列表匹配结果类型 */
 type AnyListMatch = RegExpMatchArray & { index: number };
 
+/** 检测到的列表信息 */
 interface DetectedList {
+  /** 列表类型 */
   type: ListType;
+  /** 缩进字符串 */
   indent: string;
+  /** 完整匹配的文本（包括缩进和标记） */
   fullMatch: string;
 }
 
+/**
+ * 检测行是否为列表项
+ * 
+ * @param lineText - 行文本
+ * @returns 检测结果或 null
+ */
 function detectListType(lineText: string): DetectedList | null {
   let m: AnyListMatch | null;
 
@@ -29,6 +49,13 @@ function detectListType(lineText: string): DetectedList | null {
   return null;
 }
 
+/**
+ * 生成列表前缀
+ * 
+ * @param type - 列表类型
+ * @param lineIndex - 行索引（用于有序列表编号）
+ * @returns 列表前缀字符串
+ */
 function makePrefix(type: ListType, lineIndex: number): string {
   switch (type) {
     case 'unordered':
@@ -40,6 +67,18 @@ function makePrefix(type: ListType, lineIndex: number): string {
   }
 }
 
+/**
+ * 切换列表类型
+ * 
+ * **行为：**
+ * 1. 遍历选区内的所有行
+ * 2. 如果行是目标类型的列表，则移除列表标记（取消列表）
+ * 3. 如果行是其他类型的列表，则切换为指定类型
+ * 4. 如果行不是列表，则添加指定类型的列表标记
+ * 
+ * @param view - 编辑器视图
+ * @param targetType - 目标列表类型
+ */
 export function toggleList(view: EditorView, targetType: ListType): void {
   const { from, to } = view.state.selection.main;
   const fromLine = view.state.doc.lineAt(from);

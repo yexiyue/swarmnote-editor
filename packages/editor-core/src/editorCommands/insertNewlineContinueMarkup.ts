@@ -4,6 +4,13 @@
  * 按 Enter 时自动续列表标记、blockquote 前缀。
  * 空列表项按 Enter 则删除标记、回退缩进。
  *
+ * **功能：**
+ * Markdown 感知的换行命令，在换行时自动保持格式连续性：
+ * - 列表项的延续（自动添加 `- ` 或 `1. `）
+ * - 引用块的延续（自动添加 `> `）
+ * - 任务列表的延续（自动添加 `- [ ] `）
+ * - 空列表项的处理（删除标记并回缩）
+ *
  * 基于 CodeMirror 的 insertNewlineContinueMarkup，参考 Joplin 的 fork 版本。
  *
  * Copyright (C) 2018-2021 by Marijn Haverbeke <marijn@haverbeke.berlin> and others
@@ -21,6 +28,12 @@ import {
 } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
+/**
+ * 上下文类
+ * 
+ * **功能：**
+ * 封装当前行的 Markdown 结构信息，用于生成正确的换行前缀。
+ */
 class Context {
   constructor(
     public readonly node: SyntaxNode,

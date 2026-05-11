@@ -1,11 +1,29 @@
+/**
+ * Admonition 预设配置
+ * 
+ * **功能：**
+ * 定义 GFM 和 Obsidian 风格的提示框类型预设，包括图标、颜色、标签等。
+ * 
+ * **包含的预设：**
+ * - GFM_TYPES：GitHub Flavored Markdown 标准类型（5种）
+ * - OBSIDIAN_TYPES：Obsidian 扩展类型（13种，包含 GFM + 8种额外类型）
+ * - DEFAULT_ADMONITION_TYPE：未知类型的回退配置
+ */
 import type { AdmonitionTypeConfig, AdmonitionTypesMap } from './types';
 
 /**
- * Lucide-icon SVG markup for each admonition type.
+ * Lucide 图标 SVG 标记
  *
- * Stored as raw SVG strings so they can be `innerHTML`-injected into the
- * title widget — `currentColor` lets each icon inherit the type's accent
- * color via CSS. Sourced from lucide.dev (ISC license).
+ * **存储方式：**
+ * 原始 SVG 字符串，可通过 `innerHTML` 注入到标题 widget 中；
+ * `currentColor` 让每个图标通过 CSS 继承类型的强调色。
+ * 
+ * **来源：**
+ * lucide.dev（ISC 许可证）
+ * 
+ * **支持的图标：**
+ * note, tip, important, warning, caution, info, success, question,
+ * failure, danger, bug, example, quote, pin
  */
 const ICON = {
   note: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
@@ -25,11 +43,16 @@ const ICON = {
 };
 
 /**
- * GFM standard admonition types — note / tip / important / warning / caution.
- * Default registration when `admonitionExtension()` is called with no args.
- *
- * `icon` is raw SVG markup (innerHTML-injected). Use `currentColor` so the
- * stroke inherits the type's accent color via CSS.
+ * GFM 标准 Admonition 类型 — note / tip / important / warning / caution
+ * 
+ * **用途：**
+ * 当调用 `admonitionExtension()` 无参数时的默认注册类型。
+ * 
+ * **配置说明：**
+ * - `icon`：原始 SVG 标记（通过 innerHTML 注入）
+ * - `color`：强调色（用于边框、图标等）
+ * - `label`：人类可读的标签文本
+ * - `className`：CSS 类后缀
  */
 export const GFM_TYPES: AdmonitionTypesMap = {
   note: { icon: ICON.note, color: '#1e88e5', label: 'Note', className: 'note' },
@@ -40,12 +63,16 @@ export const GFM_TYPES: AdmonitionTypesMap = {
 };
 
 /**
- * Obsidian community-extended set — GFM types plus the 8 most common
- * additional callouts. Users migrating from Obsidian opt in via:
- *
+ * Obsidian 社区扩展类型集 — GFM 类型加上最常见的 8 种额外 callout
+ * 
+ * **使用方式：**
+ * 从 Obsidian 迁移的用户可以通过以下方式启用：
  * ```ts
  * admonitionExtension({ types: { ...GFM_TYPES, ...OBSIDIAN_TYPES } })
  * ```
+ * 
+ * **包含的类型：**
+ * GFM 的 5 种 + info, success, question, failure, danger, bug, example, quote
  */
 export const OBSIDIAN_TYPES: AdmonitionTypesMap = {
   ...GFM_TYPES,
@@ -60,9 +87,16 @@ export const OBSIDIAN_TYPES: AdmonitionTypesMap = {
 };
 
 /**
- * Fallback configuration used for unrecognized type strings — preserves
- * admonition styling but uses a neutral pin icon and the literal type name
- * as label so cross-vault notes don't fail to render.
+ * 未知类型字符串的回退配置
+ * 
+ * **用途：**
+ * 当遇到未识别的类型名称时，保留 admonition 样式但使用中性的图钉图标
+ * 和字面类型名作为标签，确保跨库笔记不会渲染失败。
+ * 
+ * **特点：**
+ * - 使用灰色（#757575）作为中性色
+ * - 使用 pin 图标作为通用标识
+ * - label 为空，实际显示时会使用原始类型名
  */
 export const DEFAULT_ADMONITION_TYPE: AdmonitionTypeConfig = {
   icon: ICON.pin,

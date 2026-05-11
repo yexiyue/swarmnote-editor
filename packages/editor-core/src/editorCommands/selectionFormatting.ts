@@ -1,3 +1,9 @@
+/**
+ * 选择格式化状态查询
+ * 
+ * **功能：**
+ * 检测当前选区或光标位置的 Markdown 格式状态，用于 UI 按钮的高亮显示。
+ */
 import { ensureSyntaxTree } from '@codemirror/language';
 import type { EditorState } from '@codemirror/state';
 import { DEFAULT_SELECTION_FORMATTING, type SelectionFormatting } from '../types';
@@ -5,6 +11,15 @@ import { DEFAULT_SELECTION_FORMATTING, type SelectionFormatting } from '../types
 /**
  * Walk the syntax tree at the cursor to determine active formatting.
  * Resolves the deepest node at the cursor, then walks up through parents.
+ * 
+ * **工作流程：**
+ * 1. 获取光标位置的语法树节点
+ * 2. 从最内层节点开始向上遍历父节点
+ * 3. 根据节点类型设置对应的格式化标志（加粗、斜体、代码等）
+ * 4. 返回完整的格式化状态对象
+ * 
+ * @param state - 编辑器状态
+ * @returns 格式化状态对象
  */
 export function computeSelectionFormatting(state: EditorState): SelectionFormatting {
   const result = { ...DEFAULT_SELECTION_FORMATTING };

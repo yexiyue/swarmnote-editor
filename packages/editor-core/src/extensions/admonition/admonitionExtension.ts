@@ -1,16 +1,20 @@
 /**
- * Admonition / callout block rendering — Obsidian-style.
+ * Admonition / Callout 块渲染扩展 — Obsidian 风格
  *
- * Recognizes GFM-style `> [!type] Title` and Obsidian-pre-callout `> **type**
- * Title` syntax inside Blockquote nodes. Renders a styled callout box with:
- *   - Filled background tinted by type color
- *   - Rounded corners + colored left accent bar
- *   - Header row: Lucide SVG icon + bold label (custom title overrides label)
- *   - Source markdown `> [!type] ...` is hidden when cursor is off the title
- *     line; reveal on cursor entry, restore on exit
- *
- * Type lookup is case-insensitive. Unknown types fall back to a neutral
- * default — imported Obsidian vaults with custom callouts won't fail to render.
+ * **功能：**
+ * 识别 GFM 风格的 `> [!type] Title` 和 Obsidian pre-callout `> **type** Title`
+ * 语法，在 Blockquote 节点内渲染样式化的提示框。
+ * 
+ * **渲染效果：**
+ * - 填充背景，按类型颜色着色
+ * - 圆角 + 彩色左侧强调条
+ * - 标题行：Lucide SVG 图标 + 粗体标签（自定义标题覆盖默认标签）
+ * - 当光标不在标题行时隐藏源码 markdown `> [!type] ...`；
+ *   光标进入时显示源码，离开时恢复渲染
+ * 
+ * **特性：**
+ * - 类型查找不区分大小写
+ * - 未知类型回退到中性的默认配置 —— 导入的 Obsidian 库中的自定义 callout 不会渲染失败
  */
 import { syntaxTree } from '@codemirror/language';
 import { type EditorState, type Extension, type Range, StateField } from '@codemirror/state';
@@ -18,22 +22,35 @@ import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemir
 import { DEFAULT_ADMONITION_TYPE, GFM_TYPES } from './presets';
 import type { AdmonitionTypeConfig, AdmonitionTypesMap } from './types';
 
-// `[ \t]*` instead of `\s*` — `\s` would match `\n` and let the trailing `(.*)`
-// greedily capture the next line as a "custom title" (yielding e.g.
-// `customTitle = "> body content"` and the widget rendering body text as the
-// header label). Restricting to spaces and tabs keeps the match on line 1.
+// `[ \t]*` 而不是 `\s*` — `\s` 会匹配 `\n` 并让尾部的 `(.*)`
+// 贪婪地捕获下一行作为“自定义标题”（导致例如
+// `customTitle = "> body content"` 且 widget 将正文文本渲染为
+// 标题标签）。限制为空格和制表符可保持匹配在第 1 行。
 const ADMONITION_REGEX =
   /^>[ \t]*(?:\*{2}|\[!)([a-zA-Z][a-zA-Z0-9_-]*)(?:\*{2}|\])[ \t]*(.*)/;
 
+/** Admonition 选项接口 */
 export interface AdmonitionOptions {
   /**
-   * Map of type name → config. Default: `GFM_TYPES`. To support the full
-   * Obsidian set: `{ types: { ...GFM_TYPES, ...OBSIDIAN_TYPES } }`.
-   * Type lookup is case-insensitive.
+   * 类型名到配置的映射。默认：`GFM_TYPES`。要支持完整的
+   * Obsidian 集合：`{ types: { ...GFM_TYPES, ...OBSIDIAN_TYPES } }`。
+   * 类型查找不区分大小写。
    */
   types?: AdmonitionTypesMap;
 }
 
+/**
+ * 查找类型配置
+ * 
+ * **工作流程：**
+ * 1. 首先尝试直接匹配（区分大小写）
+ * 2. 如果未找到，尝试不区分大小写的匹配
+ * 3. 如果仍未找到，返回默认配置（使用原始类型名作为标签）
+ * 
+ * @param types - 类型映射表
+ * @param raw - 原始类型字符串
+ * @returns 包含配置和是否已知的对象
+ */
 function lookupType(types: AdmonitionTypesMap, raw: string): { config: AdmonitionTypeConfig; isKnown: boolean } {
   const direct = types[raw];
   if (direct) return { config: direct, isKnown: true };
@@ -53,23 +70,36 @@ function lookupType(types: AdmonitionTypesMap, raw: string): { config: Admonitio
 
 
 /**
- * Title-line widget — replaces the raw `> [!TYPE] custom-title?` source with
- * a self-contained block element carrying its own background / border-radius
- * / padding (same admonition tokens as body lines). Block-level so the line
- * is fully owned by the widget — no fragile interaction with line-decoration
- * reconciliation when the cursor enters and leaves the block.
+ * 标题行 Widget — 替换原始的 `> [!TYPE] custom-title?` 源码
+ * 
+ * **功能：**
+ * 用自包含的块级元素替换标题行，该元素带有自己的背景 / 圆角 / 内边距
+ * （与正文行相同的 admonition token）。
+ * 
+ * **设计原因：**
+ * 块级替换使该行完全由 widget 拥有 —— 当光标进入和离开块时，
+ * 不会与行装饰协调产生脆弱的交互。
  */
 class AdmonitionTitleWidget extends WidgetType {
   constructor(
+    /** Lucide SVG 图标字符串 */
     private readonly iconSvg: string,
+    /** 显示标签文本 */
     private readonly labelText: string,
+    /** CSS 类名（类型名） */
     private readonly className: string,
-    /** If the title line is also the last line (single-line callout). */
+    /** 如果标题行也是最后一行（单行 callout） */
     private readonly isOnly: boolean,
   ) {
     super();
   }
 
+  /**
+   * 相等性判断
+   * 
+   * @param other - 另一个 widget 实例
+   * @returns 是否相等
+   */
   eq(other: AdmonitionTitleWidget) {
     return (
       this.iconSvg === other.iconSvg &&
@@ -79,6 +109,19 @@ class AdmonitionTitleWidget extends WidgetType {
     );
   }
 
+  /**
+   * 创建 DOM 结构
+   * 
+   * **DOM 层级：**
+   * ```
+   * div.cm-admonition.cm-admonition-title.cm-admonition-{className}
+   *   div.cm-admonition-title-widget
+   *     span.cm-admonition-title-icon（SVG 图标）
+   *     span.cm-admonition-title-label（标签文本）
+   * ```
+   * 
+   * @returns 根 DOM 元素
+   */
   toDOM() {
     const root = document.createElement('div');
     root.className = `cm-admonition cm-admonition-title cm-admonition-${this.className}`;
@@ -102,52 +145,85 @@ class AdmonitionTitleWidget extends WidgetType {
     return root;
   }
 
+  /**
+   * 事件处理策略
+   * 
+   * **返回值：**
+   * false — 允许 CodeMirror 处理点击 → 光标落在标题行上 → 
+   * 块切换到源码模式（参见 buildDecorations 中的 `cursorLineNum` 检查）。
+   * 
+   * @returns false 允许事件传播
+   */
   ignoreEvent() {
-    // Allow CM6 to handle clicks → cursor lands on the title line → block
-    // switches to source mode (see `cursorLineNum` check in buildDecorations).
     return false;
   }
 }
 
 
+/**
+ * 构建 Admonition 装饰集
+ * 
+ * **工作流程：**
+ * 1. 遍历语法树，查找 Blockquote 节点
+ * 2. 使用正则表达式匹配 Admonition 语法
+ * 3. 如果光标在 admonition 块内，不应用任何装饰（显示源码）
+ * 4. 否则，创建标题 widget 和正文行装饰
+ * 
+ * **Obsidian 风格交互：**
+ * - 点击任意位置 → 整个块变为源码模式
+ * - 点击外部（光标离开块）→ 恢复渲染
+ * 
+ * @param state - 编辑器状态
+ * @param types - 类型映射表
+ * @returns 装饰集合
+ */
 function buildAdmonitionDecorations(
   state: EditorState,
   types: AdmonitionTypesMap,
 ): DecorationSet {
   const decorations: Range<Decoration>[] = [];
+  // 获取光标所在的行号
   const cursorLineNum = state.doc.lineAt(state.selection.main.head).number;
 
+  // 遍历语法树
   syntaxTree(state).iterate({
+    /**
+     * 进入节点时的处理
+     * 
+     * @param node - 当前节点
+     */
     enter: (node) => {
+      // 仅处理 Blockquote 节点
       if (node.name !== 'Blockquote') return;
 
+      // 获取 Blockquote 节点的原始文本
       const rawText = state.sliceDoc(node.from, node.to);
+      // 尝试匹配 Admonition 正则
       const match = ADMONITION_REGEX.exec(rawText);
       if (!match) return;
 
-      // Walk actual document lines covered by this Blockquote node — simpler
-      // and unambiguous compared to splitting on /\n>/ and re-deriving offsets.
+      // 遍历此 Blockquote 节点覆盖的实际文档行 —— 比在 /\n>/ 上分割并重新推导偏移量更简单且无歧义。
       const startLineNum = state.doc.lineAt(node.from).number;
       const endLineNum = state.doc.lineAt(node.to).number;
 
-      // Obsidian-style "click anywhere → whole block becomes source": when
-      // the cursor sits anywhere inside this admonition block, emit no
-      // decorations at all. The result is plain `> [!type] / > body...`
-      // markdown with the editor's default blockquote styling — fully
-      // editable. Click outside (cursor leaves the block) → render restored.
+      // Obsidian 风格的“点击任意位置 → 整个块变为源码”：当
+      // 光标坐落在此 admonition 块内的任意位置时，不发出任何
+      // 装饰。结果是纯 `> [!type] / > body...` markdown，带有编辑器的默认 blockquote 样式 —— 完全可编辑。
+      // 点击外部（光标离开块）→ 恢复渲染。
       if (cursorLineNum >= startLineNum && cursorLineNum <= endLineNum) return;
 
+      // 提取类型名和自定义标题
       const typeRaw = match[1];
       const customTitle = match[2].trim();
+      // 查找类型配置
       const { config } = lookupType(types, typeRaw);
       const baseClass = `cm-admonition cm-admonition-${config.className}`;
-      const isOnly = startLineNum === endLineNum;
+      const isOnly = startLineNum === endLineNum;  // 是否为单行 callout
       const labelText = customTitle || config.label || typeRaw;
 
-      // Title — block-level replace. Widget DOM carries its own admonition
-      // classes so we don't rely on Decoration.line + Decoration.replace
-      // overlap reconciliation, which proved fragile when entering/leaving
-      // source mode.
+      // 标题 — 块级替换。Widget DOM 带有自己的 admonition
+      // 类，因此我们不依赖 Decoration.line + Decoration.replace
+      // 重叠协调，这在进入/离开源码模式时被证明是脆弱的。
       const titleLine = state.doc.line(startLineNum);
       decorations.push(
         Decoration.replace({
@@ -156,7 +232,7 @@ function buildAdmonitionDecorations(
         }).range(titleLine.from, titleLine.to),
       );
 
-      // Body lines — line decoration only.
+      // 正文行 — 仅行装饰。
       for (let n = startLineNum + 1; n <= endLineNum; n++) {
         const line = state.doc.line(n);
         const isLast = n === endLineNum;
@@ -180,6 +256,20 @@ function buildAdmonitionDecorations(
   return Decoration.set(decorations, true);
 }
 
+/**
+ * Admonition 主题样式
+ * 
+ * **包含的样式：**
+ * 1. 每种类型的强调色（用于背景、左侧条、图标描边）
+ * 2. 每行获得着色的填充 —— 跨块组合形成连续的圆角框
+ * 3. 标题 widget — flex 行，带图标 + 粗体标签，强调色
+ * 
+ * **重要技术细节：**
+ * `background-image: none !important` 至关重要：`markdownDecorationExtension`
+ * 也添加了 `cm-blockQuote-d0` 类，通过 `background-image: linear-gradient(...)`
+ * 绘制 2px 金色垂直条。backgroundColor 和 backgroundImage 是独立的 CSS 属性
+ * —— 如果不显式清除图像，blockquote 条仍会通过我们的着色填充渲染。
+ */
 const admonitionTheme = EditorView.theme({
   // Per-type accent color (used by background, left bar, icon stroke).
   '.cm-admonition-note': { '--admonition-color': '#1e88e5' },
@@ -253,6 +343,18 @@ const admonitionTheme = EditorView.theme({
   },
 });
 
+/**
+ * 创建 Admonition 扩展
+ * 
+ * **工作流程：**
+ * 1. 合并默认类型和自定义类型
+ * 2. 创建 StateField 持久化存储装饰集
+ * 3. 在文档变化、重新配置或选区变化时重建装饰
+ * 4. 通过 provide 将装饰集提供给 EditorView
+ * 
+ * @param options - Admonition 选项
+ * @returns CodeMirror 扩展数组
+ */
 export function createAdmonitionExtension(options: AdmonitionOptions = {}): Extension {
   const types = options.types ?? GFM_TYPES;
 
