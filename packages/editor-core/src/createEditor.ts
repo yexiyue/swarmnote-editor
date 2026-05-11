@@ -35,6 +35,7 @@ import {
 import { createBlockCodeExtension } from './extensions/renderBlockCode';
 import { createBlockImageExtension } from './extensions/renderBlockImages';
 import { createBlockMathExtension } from './extensions/renderBlockMath';
+import { createBlockMermaidExtension } from './extensions/renderBlockMermaid';
 import { createBlockTableExtension } from './extensions/renderBlockTables';
 import { createRawHtmlExtension } from './extensions/renderRawHtml';
 import { createCtrlClickLinksExtension } from './extensions/links/ctrlClickLinksExtension';
@@ -139,6 +140,7 @@ export function createEditor(
       ? [createRawHtmlExtension({ resolver: imageResolver })]
       : []),
     ...(settings.features.mathRendering ? [createBlockMathExtension()] : []),
+    ...(settings.features.mermaidRendering ? [createBlockMermaidExtension()] : []),
     ...(settings.features.codeBlockMode !== 'off'
       ? [createBlockCodeExtension({ mode: settings.features.codeBlockMode })]
       : []),

@@ -28,6 +28,8 @@ export const EditorEventType = {
   Remove: 'remove',
   /** 表格右键菜单 */
   TableContextMenu: 'tableContextMenu',
+  /** Mermaid 图表放大查看请求 */
+  MermaidZoomRequest: 'mermaidZoomRequest',
 } as const;
 
 /** 编辑器事件类型联合类型 */
@@ -145,6 +147,27 @@ export interface EditorTableContextMenuEvent {
 }
 
 /**
+ * Mermaid 图表放大查看请求事件
+ * 
+ * 当用户点击 Mermaid 卡片上的放大按钮时触发。
+ * 宿主层应接收此事件并显示一个 Modal/Dialog，提供更大的视图空间。
+ * 
+ * **设计原则：**
+ * - editor-core 只负责发出事件，不实现 UI
+ * - renderedSvg 包含完整的 SVG HTML，可直接渲染
+ * - source 保留原始源码，供宿主层实现编辑功能
+ */
+export interface EditorMermaidZoomRequestEvent {
+  kind: typeof EditorEventType.MermaidZoomRequest;
+  /** Mermaid 源码字符串 */
+  source: string;
+  /** 已渲染的 SVG HTML 字符串 */
+  renderedSvg: string;
+  /** 图表唯一标识符 */
+  id: string;
+}
+
+/**
  * 编辑器事件联合类型
  * 
  * 所有可能的编辑器事件的并集，用于 TypeScript 的类型收窄。
@@ -159,7 +182,8 @@ export type EditorEvent =
   | EditorCollaborationUpdateEvent
   | EditorLinkOpenEvent
   | EditorRemoveEvent
-  | EditorTableContextMenuEvent;
+  | EditorTableContextMenuEvent
+  | EditorMermaidZoomRequestEvent;
 
 /**
  * 编辑器事件回调 Facet

@@ -29,3 +29,6 @@ export {
   searchChangeSourceEffect,
   setSearchState,
 } from './searchExtension';
+export {
+  createBlockMermaidExtension,
+} from './renderBlockMermaid';

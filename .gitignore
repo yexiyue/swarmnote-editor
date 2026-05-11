@@ -3,3 +3,6 @@ dist/
 *.tsbuildinfo
 .pnpm-store/
 **/.omc
+.claude
+.agents
+**/openspec

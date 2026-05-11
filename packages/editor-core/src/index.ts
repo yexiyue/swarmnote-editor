@@ -3,6 +3,7 @@ export { EditorControlImpl } from './EditorControl';
 export { EditorEventType } from './events';
 export type {
   EditorEvent,
+  EditorMermaidZoomRequestEvent,
   EditorSelectionFormattingChangeEvent,
   EditorTableContextMenuEvent,
   TableAlignment,
@@ -20,6 +21,11 @@ export type { RawHtmlOptions } from './extensions/renderRawHtml';
 export { setTableSourceMode } from './extensions/renderBlockTables';
 export { setCodeBlockSourceMode } from './extensions/renderBlockCode';
 export type { BlockCodeOptions } from './extensions/renderBlockCode';
+export {
+  createBlockMermaidExtension,
+  type BlockMermaidOptions,
+  clearMermaidCacheEffect,
+} from './extensions/renderBlockMermaid';
 export {
   GFM_TYPES,
   OBSIDIAN_TYPES,

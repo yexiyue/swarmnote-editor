@@ -130,6 +130,8 @@ export interface EditorFeatureToggles {
   codeBlockMode: CodeBlockMode;
   /** 数学公式渲染（KaTeX） */
   mathRendering: boolean;
+  /** Mermaid 图表渲染 */
+  mermaidRendering: boolean;
   /** 搜索功能 */
   search: boolean;
   /** 协作编辑（Yjs） */
@@ -453,6 +455,7 @@ export const DEFAULT_SETTINGS: EditorSettings = {
     rawHtmlRendering: true,
     codeBlockMode: 'inline',
     mathRendering: true,
+    mermaidRendering: true,
     search: true,
     collaboration: true,
     smartPaste: true,
