@@ -308,7 +308,7 @@ interface ParsedTag {
  */
 function parseHtmlTag(text: string): ParsedTag | null {
   const trimmed = text.trim();
-  const m = trimmed.match(/^<(\/? )\s*([a-zA-Z][a-zA-Z0-9-]*)/);
+  const m = trimmed.match(/^<(\/?)\s*([a-zA-Z][a-zA-Z0-9-]*)/);
   if (!m) return null;
   return {
     name: m[2].toLowerCase(),  // 标签名转为小写

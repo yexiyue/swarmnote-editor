@@ -28,7 +28,6 @@ import {
   RangeSetBuilder,
   StateEffect,
   StateField,
-  type Transaction,
 } from '@codemirror/state';
 import {
   Decoration,
@@ -41,28 +40,13 @@ import { editorEventCallback, EditorEventType } from '../events';
 /** Mermaid 模块缓存 */
 let mermaidModule: typeof import('mermaid') | null = null;
 
-/** Mermaid 是否已初始化 */
-let mermaidInitialized = false;
+type MermaidTheme = 'default' | 'dark';
 
-/**
- * 渲染缓存 StateField
- * 
- * 管理 Mermaid 源码到 SVG 的映射缓存。
- * 使用 StateField 可以更好地与 CodeMirror 的状态系统集成，
- * 确保缓存与文档状态同步。
- */
-const mermaidRenderCache = StateField.define<Map<string, string>>({
-  create: () => new Map(),
-  update(cache, tr) {
-    // 检查是否有清除缓存的 effect
-    const shouldClear = tr.effects.some(e => e.is(clearMermaidCacheEffect));
-    if (shouldClear) {
-      return new Map();
-    }
-    // 文档变化时，保留缓存（相同源码的 SVG 仍然有效）
-    return cache;
-  },
-});
+/** Mermaid 当前初始化主题 */
+let mermaidInitializedTheme: MermaidTheme | null = null;
+
+/** 渲染缓存：主题 + Mermaid 源码 -> SVG。 */
+const mermaidRenderCache = new Map<string, string>();
 
 /**
  * 清除 Mermaid 渲染缓存的 Effect
@@ -72,36 +56,53 @@ const mermaidRenderCache = StateField.define<Map<string, string>>({
 export const clearMermaidCacheEffect = StateEffect.define<void>();
 
 /**
+ * 缓存代次 StateField
+ *
+ * clearMermaidCacheEffect 会清空模块级缓存并递增代次。代次被写入 widget，
+ * 让 CodeMirror 在清缓存后不要把旧 DOM 判定为 eq 并继续复用。
+ */
+const mermaidCacheVersionField = StateField.define<number>({
+  create: () => 0,
+  update(version, tr) {
+    const shouldClear = tr.effects.some((effect) => effect.is(clearMermaidCacheEffect));
+    if (!shouldClear) return version;
+    mermaidRenderCache.clear();
+    return version + 1;
+  },
+});
+
+/**
  * 懒加载 Mermaid 模块
  * 
  * @param theme - 主题类型（'default' 或 'dark'）
  * @returns Mermaid 模块
  */
-async function loadMermaid(theme: 'default' | 'dark' = 'default') {
+async function loadMermaid(theme: MermaidTheme = 'default') {
   if (!mermaidModule) {
     mermaidModule = await import('mermaid');
   }
   
-  // 首次加载时初始化配置
-  if (!mermaidInitialized && mermaidModule) {
+  if (mermaidInitializedTheme !== theme) {
     const mermaid = mermaidModule.default ?? mermaidModule;
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'loose',
-      theme: theme,
+      theme,
     });
-    mermaidInitialized = true;
-  } else if (mermaidModule) {
-    // 如果主题变化，重新初始化
-    const mermaid = mermaidModule.default ?? mermaidModule;
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: 'loose',
-      theme: theme,
-    });
+    mermaidInitializedTheme = theme;
   }
   
   return mermaidModule.default ?? mermaidModule;
+}
+
+function getMermaidTheme(): MermaidTheme {
+  const isDark = document.body.classList.contains('cm-dark') ||
+    document.documentElement.classList.contains('dark');
+  return isDark ? 'dark' : 'default';
+}
+
+function getRenderCacheKey(theme: MermaidTheme, source: string): string {
+  return `${theme}\0${source}`;
 }
 
 /**
@@ -118,6 +119,25 @@ function generateMermaidId(): string {
   const random = Math.random().toString(36).substring(2, 8);
   return `mermaid-${timestamp}-${random}`;
 }
+
+function createIconButton(
+  className: string,
+  title: string,
+  svg: string,
+): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.className = className;
+  button.type = 'button';
+  button.title = title;
+  button.innerHTML = svg;
+  return button;
+}
+
+const SOURCE_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>';
+
+const ZOOM_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>';
 
 /**
  * 块级 Mermaid 图表 Widget
@@ -143,6 +163,8 @@ class BlockMermaidWidget extends WidgetType {
     private readonly contentTo: number,
     /** 图表唯一 ID */
     private readonly chartId: string,
+    /** 缓存/渲染代次 */
+    private readonly renderVersion: number,
   ) {
     super();
   }
@@ -150,14 +172,19 @@ class BlockMermaidWidget extends WidgetType {
   /**
    * 判断两个 widget 是否相等
    * 
-   * 只比较源码内容，不比较 chartId。
-   * 这样可以避免 widget 重建时的竞态条件，防止图表卡在 Loading 状态。
+   * chartId 不参与比较，否则每次重建 decoration 都会强制重绘。
+   * 源码范围必须参与比较，因为事件闭包会使用这些位置切回源码。
    * 
    * @param other - 另一个 BlockMermaidWidget
    * @returns 如果源码相同则返回 true
    */
   eq(other: BlockMermaidWidget) {
-    return other.source === this.source;
+    return (
+      other.source === this.source &&
+      other.contentFrom === this.contentFrom &&
+      other.contentTo === this.contentTo &&
+      other.renderVersion === this.renderVersion
+    );
   }
 
   /**
@@ -189,21 +216,16 @@ class BlockMermaidWidget extends WidgetType {
     diagram.className = 'cm-mermaid-block';
     diagram.textContent = 'Loading...';
 
-    // 创建源码图标按钮
-    const sourceBtn = document.createElement('button');
-    sourceBtn.className = 'cm-mermaid-block-source';
-    sourceBtn.type = 'button';
-    sourceBtn.title = '查看/编辑源码';
-    sourceBtn.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>';
-
-    // 创建放大按钮
-    const zoomBtn = document.createElement('button');
-    zoomBtn.className = 'cm-mermaid-block-zoom';
-    zoomBtn.type = 'button';
-    zoomBtn.title = '放大查看';
-    zoomBtn.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>';
+    const sourceBtn = createIconButton(
+      'cm-mermaid-block-source',
+      '查看/编辑源码',
+      SOURCE_ICON_SVG,
+    );
+    const zoomBtn = createIconButton(
+      'cm-mermaid-block-zoom',
+      '放大查看',
+      ZOOM_ICON_SVG,
+    );
 
     card.appendChild(diagram);
     card.appendChild(sourceBtn);
@@ -225,7 +247,7 @@ class BlockMermaidWidget extends WidgetType {
     };
 
     // 点击放大按钮或图片区域：打开放大 Modal
-    const openZoom = async (event: Event) => {
+    const openZoom = (event: Event) => {
       event.preventDefault();
       event.stopPropagation();
       
@@ -249,7 +271,7 @@ class BlockMermaidWidget extends WidgetType {
     zoomBtn.addEventListener('mousedown', openZoom);
     
     // 点击图片区域：直接打开放大 Modal
-    card.addEventListener('click', (e) => {
+    card.addEventListener('mousedown', (e) => {
       const target = e.target as HTMLElement;
       // 如果点击的是按钮，不触发
       if (target === sourceBtn || target.closest('.cm-mermaid-block-source') ||
@@ -270,42 +292,29 @@ class BlockMermaidWidget extends WidgetType {
    */
   private async renderDiagram(container: HTMLElement, view: EditorView) {
     try {
-      // 获取缓存
-      const cache = view.state.field(mermaidRenderCache);
-      
+      const theme = getMermaidTheme();
+      const cacheKey = getRenderCacheKey(theme, this.source);
+
       // 检查缓存
-      let svg = cache.get(this.source);
+      let svg = mermaidRenderCache.get(cacheKey);
       
       if (!svg) {
-        // 检测当前主题
-        const isDark = document.body.classList.contains('cm-dark') || 
-                      document.documentElement.classList.contains('dark');
-        const theme = isDark ? 'dark' : 'default';
-        
         // 缓存未命中，调用 Mermaid 渲染
         const mermaid = await loadMermaid(theme);
-        
-        // 检查元素是否仍然连接到 DOM
-        if (!container.isConnected) return;
-        
+
         // 使用 mermaid.render 生成 SVG
         const { svg: renderedSvg } = await mermaid.render(this.chartId, this.source);
         svg = renderedSvg;
         
         // 存入缓存
-        cache.set(this.source, svg);
+        mermaidRenderCache.set(cacheKey, svg);
       }
-      
-      // 再次检查元素连接状态
-      if (!container.isConnected) return;
-      
+
       // 渲染 SVG
       container.innerHTML = svg;
       
     } catch (error) {
       // 渲染失败：显示错误信息
-      if (!container.isConnected) return;
-      
       console.error('Mermaid render error:', error);
       container.innerHTML = `
         <div class="cm-mermaid-error">
@@ -334,14 +343,13 @@ class BlockMermaidWidget extends WidgetType {
   /**
    * 是否忽略事件
    * 
-   * 返回 false 表示让 mousedown 事件通过我们的处理器运行；
-   * 忽略其他所有事件，这样 CodeMirror 就不会根据 widget 点击重新定位光标。
+   * Mermaid 卡片的交互都在 DOM 事件里处理，返回 true 防止 CodeMirror
+   * 把点击卡片主体解释为“把光标放进被替换的源码范围”。
    * 
-   * @param event - 事件对象
-   * @returns 如果不是 mousedown 则返回 true（忽略该事件）
+   * @returns true（让 CodeMirror 忽略 widget 内部事件）
    */
-  ignoreEvent(event: Event) {
-    return event.type !== 'mousedown';
+  ignoreEvent() {
+    return true;
   }
 
   /**
@@ -379,6 +387,7 @@ function buildBlockMermaidDecorations(state: EditorState): DecorationSet {
 
   const sel = state.selection.main;
   const cursorLine = state.doc.lineAt(sel.head).number;
+  const renderVersion = state.field(mermaidCacheVersionField);
 
   // 遍历语法树
   tree.iterate({
@@ -420,7 +429,13 @@ function buildBlockMermaidDecorations(state: EditorState): DecorationSet {
       const chartId = generateMermaidId();
       
       // 创建 Mermaid Widget
-      const widget = new BlockMermaidWidget(mermaidSource, contentFrom, contentTo, chartId);
+      const widget = new BlockMermaidWidget(
+        mermaidSource,
+        contentFrom,
+        contentTo,
+        chartId,
+        renderVersion,
+      );
 
       if (intersects) {
         // 光标在块内 → 不渲染 widget，让用户直接编辑源码
@@ -448,7 +463,8 @@ function buildBlockMermaidDecorations(state: EditorState): DecorationSet {
 const blockMermaidField = StateField.define<DecorationSet>({
   create: (state) => buildBlockMermaidDecorations(state),
   update(prev, tr) {
-    if (tr.docChanged || tr.selection) {
+    const hasCacheClear = tr.effects.some((effect) => effect.is(clearMermaidCacheEffect));
+    if (tr.docChanged || tr.selection || hasCacheClear) {
       return buildBlockMermaidDecorations(tr.state);
     }
     return prev;
@@ -554,5 +570,5 @@ export function createBlockMermaidExtension(options: BlockMermaidOptions = {}): 
     return [];  // 如果禁用，返回空扩展
   }
   
-  return [blockMermaidField, blockMermaidTheme];
+  return [mermaidCacheVersionField, blockMermaidField, blockMermaidTheme];
 }
