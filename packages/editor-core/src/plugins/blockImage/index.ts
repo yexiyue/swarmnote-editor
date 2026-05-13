@@ -12,7 +12,7 @@ import {
   type BlockImageOptions,
   createBlockImageExtension,
 } from './renderBlockImages';
-import type { EditorPlugin } from '../../types';
+import type { EditorPlugin, SlashItem } from '../../types';
 
 export { refreshBlockImagesEffect } from './renderBlockImages';
 export type { ImageResolver, BlockImageOptions } from './renderBlockImages';
@@ -29,6 +29,26 @@ export function blockImagePlugin(options?: BlockImagePluginOptions): EditorPlugi
           resolver: ctx.host.resolveImage,
         }),
       ]);
+      ctx.registerSlashItems({
+        id: 'blockImage.builtin',
+        provide: (): SlashItem[] => [
+          {
+            id: 'blockImage.insert',
+            title: 'Image',
+            description: 'Insert an image (paste / replace url after `![]()`)',
+            icon: '🖼',
+            keywords: ['image', 'img', 'picture', '图片'],
+            section: 'Insert',
+            run: ({ view, range }) => {
+              const insert = '![]()';
+              view.dispatch({
+                changes: { from: range.from, insert },
+                selection: { anchor: range.from + 4 },
+              });
+            },
+          },
+        ],
+      });
     },
   };
 }

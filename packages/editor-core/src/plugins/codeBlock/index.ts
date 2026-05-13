@@ -12,7 +12,7 @@ import {
   type BlockCodeOptions,
   createBlockCodeExtension,
 } from './renderBlockCode';
-import type { EditorPlugin } from '../../types';
+import type { EditorPlugin, SlashItem } from '../../types';
 
 /** 代码块渲染模式（非 plugin-internal 形态，对应 BlockCodeOptions.mode） */
 export type CodeBlockPluginMode = NonNullable<BlockCodeOptions['mode']>;
@@ -29,6 +29,20 @@ export function codeBlockPlugin(options?: CodeBlockPluginOptions): EditorPlugin 
       ctx.registerCmExtensions([
         createBlockCodeExtension({ mode: options?.mode ?? 'inline' }),
       ]);
+      ctx.registerSlashItems({
+        id: 'codeBlock.builtin',
+        provide: (): SlashItem[] => [
+          {
+            id: 'codeBlock.insert',
+            title: 'Code block',
+            description: 'Insert a fenced code block',
+            icon: '⌨',
+            keywords: ['code', 'block', '代码块', 'fenced'],
+            section: 'Insert',
+            commandId: 'insertCodeBlock',
+          },
+        ],
+      });
     },
   };
 }

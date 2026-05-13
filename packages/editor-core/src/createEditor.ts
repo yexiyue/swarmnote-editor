@@ -12,6 +12,7 @@ import { classHighlighter } from '@lezer/highlight';
 import { collapseOnSelectionFacet, mouseSelectingExtension } from './core';
 import { EditorControlImpl } from './EditorControl';
 import { editorEventCallback, EditorEventType, type EditorEvent } from './events';
+import { execCommandFacet, type ExecCommandRef } from './pluginHost';
 import {
   computeSelectionFormatting,
   cycleHeading,
@@ -90,6 +91,10 @@ export function createEditor(
   const effectiveHost = mergeHostCapabilities(host, imageResolver, uploadFile);
   // 由 plugin host 收集 register* 调用结果。
   const pluginHost = createPluginHost(effectiveHost, plugins);
+
+  // execCommandFacet：plugin runtime 通过 facet 调 control.execCommand。
+  // mutable ref 配合 facet 单例：control 创建后回填 fn。
+  const execCommandRef: ExecCommandRef = { fn: null };
 
   // Plugin probing：通过 plugin id 集合决定 lezer / inline-rendering 等
   // 仍由 createEditor 直接控制的扩展是否启用。Block-level 渲染扩展由
@@ -183,6 +188,7 @@ export function createEditor(
 
   // editorEventCallback facet 总是注入 emit（即使没有 host onEvent，plugin listener 也要工作）
   extensions.push(editorEventCallback.of(emit));
+  extensions.push(execCommandFacet.of(execCommandRef));
 
   if (onEvent) {
     extensions.push(
@@ -257,6 +263,9 @@ export function createEditor(
         }
       : undefined,
   });
+
+  // 回填 execCommandRef.fn，让 plugin runtime 通过 execCommandFacet 调到。
+  execCommandRef.fn = (id, ...args) => control.execCommand(id, ...args);
 
   if (initialSearchState && settings.features.search) {
     control.setSearchState(initialSearchState, 'initialSearchState');

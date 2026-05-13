@@ -20,7 +20,7 @@ import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { editorEventCallback, EditorEventType } from '../../../events';
 import { createCharTriggerStateMachine } from '../../../internal/charTriggerStateMachine';
-import { slashItemProvidersFacet } from '../../../pluginHost';
+import { execCommandFacet, slashItemProvidersFacet } from '../../../pluginHost';
 import type { EditorPlugin, SlashItem, SlashItemProvider } from '../../../types';
 
 const HOST_PROVIDER_PRIORITY = 200;
@@ -29,6 +29,12 @@ const DEFAULT_PROVIDER_PRIORITY = 100;
 export interface SlashPluginOptions {
   /** Trigger char，固定 `/`；预留 option 以备未来扩展，但只接受 `/`。 */
   triggerChar?: '/';
+  /**
+   * 选中 item 完成 commit 后被调用，传 item.id。host 可用此 hook 记录 MRU。
+   * 在 `slash.confirm` 命令执行 commit 之前调用——即便 commit 抛错，callback
+   * 也已经被通知（MRU 更新与 commit 是否成功解耦）。
+   */
+  onItemConfirmed?: (itemId: string) => void;
 }
 
 /** 过滤位置：在 CodeBlock / FencedCode / InlineCode / 数学 / FrontMatter 内不激活 */
@@ -80,7 +86,7 @@ function sortAndDedupe(
   return out;
 }
 
-export function slashCommandPlugin(_options?: SlashPluginOptions): EditorPlugin {
+export function slashCommandPlugin(options?: SlashPluginOptions): EditorPlugin {
   return {
     id: 'slash',
     version: '0.3.0',
@@ -99,10 +105,12 @@ export function slashCommandPlugin(_options?: SlashPluginOptions): EditorPlugin 
             try {
               const items = await p.provide(query, signal);
               if (signal.aborted) return;
+              const providerPriority = p.priority ?? DEFAULT_PROVIDER_PRIORITY;
               for (const it of items) {
                 collected.push({
                   item: it,
-                  priority: p.priority ?? DEFAULT_PROVIDER_PRIORITY,
+                  // item.priority 优先（用于 MRU lift）；fallback 到 provider priority
+                  priority: it.priority ?? providerPriority,
                   score: scoreItem(it, query),
                 });
               }
@@ -121,7 +129,7 @@ export function slashCommandPlugin(_options?: SlashPluginOptions): EditorPlugin 
               for (const it of items) {
                 collected.push({
                   item: it,
-                  priority: HOST_PROVIDER_PRIORITY,
+                  priority: it.priority ?? HOST_PROVIDER_PRIORITY,
                   score: scoreItem(it, query),
                 });
               }
@@ -182,9 +190,42 @@ export function slashCommandPlugin(_options?: SlashPluginOptions): EditorPlugin 
             const range = handle.getState().range;
             const item = handle.confirm(view);
             if (!item) return;
+
+            // Notify host (MRU bookkeeping etc.) before commit
+            try {
+              options?.onItemConfirmed?.(item.id);
+            } catch (err) {
+              console.error(`[editor-core] slash onItemConfirmed threw for "${item.id}"`, err);
+            }
+
+            // 先删除 trigger range（`/query` 文本），让 commandId / run 在干净的
+            // 光标位置上执行
+            view.dispatch({ changes: { from: range.from, to: range.to, insert: '' } });
+
+            // commit 优先级：commandId > run（D5 决策）
+            if (item.commandId) {
+              const exec = view.state.facet(execCommandFacet);
+              if (exec.fn) {
+                try {
+                  exec.fn(item.commandId);
+                } catch (err) {
+                  console.error(
+                    `[editor-core] slash item "${item.id}" commandId "${item.commandId}" threw`,
+                    err,
+                  );
+                }
+                return;
+              }
+              console.warn(
+                `[editor-core] slash item "${item.id}" has commandId "${item.commandId}" but execCommandFacet not wired`,
+              );
+            }
             if (item.run) {
               try {
-                const res = item.run({ view, range });
+                const res = item.run({
+                  view,
+                  range: { from: range.from, to: range.from },
+                });
                 if (res && typeof (res as Promise<unknown>).then === 'function') {
                   (res as Promise<unknown>).catch((err) => {
                     console.error(`[editor-core] slash item "${item.id}" run rejected`, err);
@@ -193,11 +234,6 @@ export function slashCommandPlugin(_options?: SlashPluginOptions): EditorPlugin 
               } catch (err) {
                 console.error(`[editor-core] slash item "${item.id}" run threw`, err);
               }
-            } else if (item.commandId) {
-              // Phase A 限制：commandId 路径未在 plugin 内接通；commit 必须通过 item.run
-              console.warn(
-                `[editor-core] slash item "${item.id}" has commandId "${item.commandId}" but no "run" — Phase A 内 commit 必须通过 run；commandId 路径将在 Phase B 通过 execCommand facet 补齐`,
-              );
             }
           },
         },

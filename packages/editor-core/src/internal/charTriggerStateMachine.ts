@@ -109,19 +109,34 @@ export function createCharTriggerStateMachine<TItem>(
     emit();
   };
 
-  const computeScreenRect = (
-    view: EditorView,
-    from: number,
-    to: number,
-  ): CharTriggerState<TItem>['screenRect'] => {
-    const fromCoords = view.coordsAtPos(from);
-    const toCoords = view.coordsAtPos(to);
-    if (!fromCoords || !toCoords) return undefined;
-    const left = Math.min(fromCoords.left, toCoords.left);
-    const right = Math.max(fromCoords.right, toCoords.right);
-    const top = Math.min(fromCoords.top, toCoords.top);
-    const bottom = Math.max(fromCoords.bottom, toCoords.bottom);
-    return { x: left, y: top, width: right - left, height: bottom - top };
+  /**
+   * Compute screen rect in the CM6 **measure phase** (not in update).
+   * Calling `view.coordsAtPos` directly inside an update phase throws
+   * "Reading the editor layout isn't allowed during an update".
+   *
+   * Schedules `view.requestMeasure`; once layout is read, mutates the
+   * current state's screenRect and re-emits if the trigger is still
+   * active at the same range.
+   */
+  const scheduleMeasureRect = (view: EditorView, from: number, to: number) => {
+    view.requestMeasure({
+      read(v) {
+        const fromCoords = v.coordsAtPos(from);
+        const toCoords = v.coordsAtPos(to);
+        if (!fromCoords || !toCoords) return null;
+        const left = Math.min(fromCoords.left, toCoords.left);
+        const right = Math.max(fromCoords.right, toCoords.right);
+        const top = Math.min(fromCoords.top, toCoords.top);
+        const bottom = Math.max(fromCoords.bottom, toCoords.bottom);
+        return { x: left, y: top, width: right - left, height: bottom - top };
+      },
+      write(rect) {
+        if (!rect) return;
+        if (!current.active) return;
+        if (current.range.from !== from || current.range.to !== to) return;
+        setState({ ...current, screenRect: rect });
+      },
+    });
   };
 
   const cancelInFlight = () => {
@@ -148,11 +163,12 @@ export function createCharTriggerStateMachine<TItem>(
         .then((items) => {
           if (ac.signal.aborted || myToken !== queryToken) return;
           if (!current.active) return;
+          // computeItems 完成时 setState 保留现有 screenRect（measure phase 已通过
+          // scheduleMeasureRect 异步更新过）
           setState({
             ...current,
             items,
             activeIndex: items.length > 0 ? 0 : 0,
-            screenRect: computeScreenRect(view, current.range.from, current.range.to),
           });
         })
         .catch((err: unknown) => {
@@ -191,8 +207,9 @@ export function createCharTriggerStateMachine<TItem>(
       range,
       items: [],
       activeIndex: 0,
-      screenRect: computeScreenRect(view, range.from, range.to),
+      screenRect: undefined,
     });
+    scheduleMeasureRect(view, range.from, range.to);
     scheduleCompute(view);
     return true;
   };
@@ -230,8 +247,9 @@ export function createCharTriggerStateMachine<TItem>(
       ...current,
       query,
       range: { from: triggerFrom, to: cursor },
-      screenRect: computeScreenRect(view, triggerFrom, cursor),
+      screenRect: undefined,
     });
+    scheduleMeasureRect(view, triggerFrom, cursor);
     scheduleCompute(view);
   };
 

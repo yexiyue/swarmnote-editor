@@ -32,6 +32,23 @@ export const slashItemProvidersFacet = Facet.define<
   combine: (values) => values.find((v) => v !== undefined) ?? [],
 });
 
+/**
+ * Internal facet: 把 `EditorControl.execCommand` 暴露给 plugin runtime。
+ *
+ * createEditor 创建 EditorControl 后注入；引用通过 mutable `ref.fn` 字段保持，
+ * 这样 facet value (the ref object) 不变 → plugin 通过 `view.state.facet(...)`
+ * 总是拿到最新的 fn。
+ *
+ * NON-PUBLIC：第三方 plugin 不得直接使用；通过 `ctx.host` / `registerCommands` 接入。
+ */
+export interface ExecCommandRef {
+  fn: ((id: string, ...args: unknown[]) => unknown) | null;
+}
+
+export const execCommandFacet = Facet.define<ExecCommandRef, ExecCommandRef>({
+  combine: (values) => values.find((v) => v !== undefined) ?? { fn: null },
+});
+
 interface PluginHostState {
   commands: Map<string, EditorCommandSpec>;
   extensions: Extension[];

@@ -575,6 +575,12 @@ export interface SlashItem {
   keywords?: string[];
   /** 分组（host 端可分组渲染，如 "插入" / "跳转"） */
   section?: string;
+  /**
+   * 排序权重（可选）。若设置，slash plugin runtime 在排序时使用本字段
+   * 覆盖 provider 默认 priority。Host 可用此字段把 MRU items lift 到顶部
+   * （典型：host 给 MRU items 赋 priority 300+）。
+   */
+  priority?: number;
   /** 引用已注册的 EditorCommandSpec.id；选中时优先走 execCommand 路径 */
   commandId?: string;
   /** 直接 commit 函数；优先级低于 commandId（两者都填时 commandId 优先） */

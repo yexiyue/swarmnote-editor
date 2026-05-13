@@ -9,7 +9,7 @@
  * 完成后从 `settings.features.mathRendering` 切换为「plugins[] 含 math」探测。
  */
 import { createBlockMathExtension } from './renderBlockMath';
-import type { EditorPlugin } from '../../types';
+import type { EditorPlugin, SlashItem } from '../../types';
 
 export interface MathPluginOptions {
   // v0.1 暂无可配置项；保留对象以便后续无破坏添加
@@ -30,6 +30,26 @@ export function mathPlugin(_options?: MathPluginOptions): EditorPlugin {
     id: 'math',
     setup(ctx) {
       ctx.registerCmExtensions([createBlockMathExtension()]);
+      ctx.registerSlashItems({
+        id: 'math.builtin',
+        provide: (): SlashItem[] => [
+          {
+            id: 'math.insertBlock',
+            title: 'Math block',
+            description: 'Insert a $$...$$ math block',
+            icon: '∑',
+            keywords: ['math', 'equation', 'latex', '数学', '公式'],
+            section: 'Insert',
+            run: ({ view, range }) => {
+              const insert = '$$\n\n$$\n';
+              view.dispatch({
+                changes: { from: range.from, insert },
+                selection: { anchor: range.from + 3 },
+              });
+            },
+          },
+        ],
+      });
     },
   };
 }
