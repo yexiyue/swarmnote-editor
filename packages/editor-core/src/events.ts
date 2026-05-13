@@ -3,6 +3,7 @@ import type {
   EditorSelectionRange,
   SearchState,
   SelectionFormatting,
+  SelectionToolbarAction,
   SlashItem,
   WikilinkItem,
 } from './types';
@@ -43,10 +44,7 @@ export const EditorEventType = {
   SlashTriggerChange: 'slashTriggerChange',
   /** Wikilink 触发器状态变化（Interaction, stable since v0.3 phase B）。 */
   WikilinkTriggerChange: 'wikilinkTriggerChange',
-  /**
-   * 选区工具栏状态变化（Interaction, `@unstable` until v0.3 phase C）。
-   * v0.3 phase A 内 runtime 不 dispatch。
-   */
+  /** 选区工具栏状态变化（Interaction, stable since v0.3 phase C）。 */
   SelectionToolbarChange: 'selectionToolbarChange',
   /** 表格右键菜单（Platform-coupled，Web/DOM 假设） */
   TableContextMenu: 'tableContextMenu',
@@ -160,17 +158,20 @@ export interface WikilinkTriggerMatch {
 }
 
 /**
- * 选区工具栏状态。`anchor` / `head` 为 CM Position，不含 DOM 坐标。
+ * SelectionToolbar 匹配。DOM-agnostic。
+ *
+ * `selection.from === selection.to` 时 `active` 必为 false（光标态不触发）。
+ *
+ * Stable since v0.3 (phase C)。
  */
-export interface SelectionToolbarState {
-  /** 是否应当显示工具栏 */
-  visible: boolean;
-  /** 选区锚点（CM Position） */
-  anchor: number;
-  /** 选区头部（CM Position） */
-  head: number;
-  /** 当前选区的格式状态 */
-  formatting: SelectionFormatting;
+export interface SelectionToolbarMatch {
+  active: boolean;
+  /** 选区范围（CM 文档 offset）；inactive 时 `from === to` */
+  selection: { from: number; to: number };
+  /** 当前可用的 toolbar actions（已合并 built-in + plugin + host） */
+  actions: SelectionToolbarAction[];
+  /** 锚定 rect；典型由 web 端用选区第一行的 union rect */
+  screenRect?: { x: number; y: number; width: number; height: number };
 }
 
 /**
@@ -201,14 +202,15 @@ export interface EditorWikilinkTriggerChangeEvent {
 }
 
 /**
- * @unstable v0.1 仅占类型，runtime 在 v0.2 落地。shape 可能调整。
+ * 选区工具栏状态变化。selection 切换 / focus 变化 / 命令 dismiss 时 dispatch。
  *
- * 选区工具栏状态变化。当用户选中文本 / 取消选中时 dispatch。
+ * `match.active: false` 表示 toolbar 应隐藏。
+ *
+ * Stable since v0.3 (phase C)。
  */
 export interface EditorSelectionToolbarChangeEvent {
   kind: typeof EditorEventType.SelectionToolbarChange;
-  /** 当前工具栏状态 */
-  state: SelectionToolbarState;
+  match: SelectionToolbarMatch;
 }
 
 // ---------------------------------------------------------------------------

@@ -547,6 +547,18 @@ export interface EditorHostCapabilities {
    * Stable since v0.3 (phase B)。
    */
   getWikilinkItems?: (query: string, signal: AbortSignal) => Promise<WikilinkItem[]>;
+  /**
+   * 返回 selection toolbar 业务 actions（同步签名）。
+   *
+   * 在每次 selection 变化、toolbar 即将激活时调用。host 可基于当前选区
+   * 内容返回业务 actions（如「跳转 wikilink」）；返回 [] 表示无追加。
+   *
+   * Stable since v0.3 (phase C)。
+   */
+  getSelectionToolbarActions?: (selection: {
+    from: number;
+    to: number;
+  }) => SelectionToolbarAction[];
 }
 
 /**
@@ -654,6 +666,32 @@ export interface WikilinkItemProvider {
   provide(query: string, signal: AbortSignal): WikilinkItem[] | Promise<WikilinkItem[]>;
 }
 
+/**
+ * SelectionToolbar action：浮动 toolbar 上的按钮。
+ *
+ * 与 SlashItem 不同，selection toolbar action 永远绑定到已注册的
+ * EditorCommandSpec.id —— toolbar 按钮天然是命令的别名。
+ *
+ * Stable since v0.3 (phase C)。
+ */
+export interface SelectionToolbarAction {
+  /** 全局唯一 id（如 'bold', 'italic', 'strike'） */
+  id: string;
+  /** 鼠标 hover tooltip 文本 */
+  title: string;
+  /** 图标语义化标识 */
+  icon: string;
+  /** 必填：引用 EditorControl.execCommand 的命令名 */
+  commandId: string;
+  /**
+   * 可选：返回当前 selection 上该 action 是否处于「激活」状态。
+   * 用于按钮高亮（如选区已经 bold，bold 按钮显示 pressed 状态）。
+   */
+  isActive?: (state: import('@codemirror/state').EditorState) => boolean;
+  /** 排序权重；同 SlashItem.priority */
+  priority?: number;
+}
+
 /** 编辑器事件监听器（与 onEvent 同 shape） */
 export type EditorEventListener = (event: EditorEvent) => void;
 
@@ -698,6 +736,14 @@ export interface EditorPluginContext {
    * Stable since v0.3 (phase B)。
    */
   registerWikilinkItems(provider: WikilinkItemProvider): Disposable;
+
+  /**
+   * 注册 selection toolbar actions。在 `selectionToolbarPlugin` 加载时
+   * 收集；toolbar 激活期间作为额外 actions 合并到内置 default 之后。
+   *
+   * Stable since v0.3 (phase C)。
+   */
+  registerSelectionToolbarActions(actions: SelectionToolbarAction[]): Disposable;
 
   /**
    * 订阅 editor 事件。Plugin 监听内核事件做反应式工作时使用。

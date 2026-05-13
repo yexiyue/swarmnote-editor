@@ -12,6 +12,7 @@ import type {
   EditorPluginInstance,
   EditorProps,
   MarkdownRenderRule,
+  SelectionToolbarAction,
   SlashItemProvider,
   WikilinkItemProvider,
 } from './types';
@@ -41,6 +42,14 @@ export const wikilinkItemProvidersFacet = Facet.define<
   combine: (values) => values.find((v) => v !== undefined) ?? [],
 });
 
+/** Internal facet for plugin-registered selection toolbar actions (live array). */
+export const selectionToolbarActionsFacet = Facet.define<
+  readonly import('./types').SelectionToolbarAction[],
+  readonly import('./types').SelectionToolbarAction[]
+>({
+  combine: (values) => values.find((v) => v !== undefined) ?? [],
+});
+
 /**
  * Internal facet: 把 `EditorControl.execCommand` 暴露给 plugin runtime。
  *
@@ -66,6 +75,7 @@ interface PluginHostState {
   instances: EditorPluginInstance[];
   slashProviders: SlashItemProvider[];
   wikilinkProviders: WikilinkItemProvider[];
+  selectionToolbarActions: SelectionToolbarAction[];
   eventListeners: Map<EditorEventType, Set<EditorEventListener>>;
 }
 
@@ -76,6 +86,8 @@ export interface PluginHost {
   readonly slashProviders: readonly SlashItemProvider[];
   /** Plugin 注册的 wikilink provider 列表 */
   readonly wikilinkProviders: readonly WikilinkItemProvider[];
+  /** Plugin 注册的 selection toolbar actions 列表 */
+  readonly selectionToolbarActions: readonly SelectionToolbarAction[];
   /**
    * 尝试执行 plugin 注册的命令。
    * - 返回 `true`：命中（且已执行 / 被 `when` 否决）
@@ -146,12 +158,14 @@ export function createPluginHost(
     instances: [],
     slashProviders: [],
     wikilinkProviders: [],
+    selectionToolbarActions: [],
     eventListeners: new Map(),
   };
 
   // 把 *Providers live 引用注入 facet，对应 plugin 的 ViewPlugin 可读
   state.extensions.push(slashItemProvidersFacet.of(state.slashProviders));
   state.extensions.push(wikilinkItemProvidersFacet.of(state.wikilinkProviders));
+  state.extensions.push(selectionToolbarActionsFacet.of(state.selectionToolbarActions));
 
   for (const plugin of plugins ?? []) {
     const ctx = createCtx(plugin, host, state);
@@ -168,6 +182,9 @@ export function createPluginHost(
     },
     get wikilinkProviders() {
       return state.wikilinkProviders;
+    },
+    get selectionToolbarActions() {
+      return state.selectionToolbarActions;
     },
     dispatchEvent(event) {
       const listeners = state.eventListeners.get(event.kind);
@@ -287,6 +304,17 @@ function createCtx(
         dispose() {
           const idx = state.wikilinkProviders.indexOf(provider);
           if (idx >= 0) state.wikilinkProviders.splice(idx, 1);
+        },
+      });
+    },
+    registerSelectionToolbarActions(actions) {
+      state.selectionToolbarActions.push(...actions);
+      return trackDisposable({
+        dispose() {
+          for (const a of actions) {
+            const idx = state.selectionToolbarActions.indexOf(a);
+            if (idx >= 0) state.selectionToolbarActions.splice(idx, 1);
+          }
         },
       });
     },
