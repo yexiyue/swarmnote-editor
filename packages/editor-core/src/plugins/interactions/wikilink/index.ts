@@ -21,6 +21,7 @@ import { editorEventCallback, EditorEventType } from '../../../events';
 import { createCharTriggerStateMachine } from '../../../internal/charTriggerStateMachine';
 import { wikilinkItemProvidersFacet } from '../../../pluginHost';
 import type { EditorPlugin, WikilinkItem, WikilinkItemProvider } from '../../../types';
+import { createWikilinkDecorationExtension } from './wikilinkDecorationExtension';
 
 const HOST_PROVIDER_PRIORITY = 200;
 const DEFAULT_PROVIDER_PRIORITY = 100;
@@ -150,7 +151,11 @@ export function wikilinkPlugin(options?: WikilinkPluginOptions): EditorPlugin {
         currentView = u.view;
       });
 
-      ctx.registerCmExtensions([handle.extension, viewRefCapture]);
+      ctx.registerCmExtensions([
+        handle.extension,
+        viewRefCapture,
+        createWikilinkDecorationExtension(),
+      ]);
 
       const performConfirm = (view: EditorView) => {
         const range = handle.getState().range;
@@ -163,10 +168,21 @@ export function wikilinkPlugin(options?: WikilinkPluginOptions): EditorPlugin {
           console.error(`[editor-core] wikilink onItemConfirmed threw for "${item.id}"`, err);
         }
 
-        // Replace `[[query` with `[[<title>]]` and place cursor after the closing `]]`
+        // CM6 closeBrackets 扩展在用户键入 `[` 时会自动插入对应 `]`。当 trigger
+        // 是 `[[`，closeBrackets 会留下 `]]` 在 cursor 之后。我们把这些已存在的
+        // 尾部 `]` 字符纳入替换范围，避免出现 `[[<title>]]]]`。
+        let endPos = range.to;
+        const after = view.state.doc.sliceString(range.to, range.to + 2);
+        if (after === ']]') {
+          endPos = range.to + 2;
+        } else if (after.startsWith(']')) {
+          endPos = range.to + 1;
+        }
+
+        // Replace `[[query` (+ stray closing `]]` if present) with `[[<title>]]`
         const replacement = `[[${item.title}]]`;
         view.dispatch({
-          changes: { from: range.from, to: range.to, insert: replacement },
+          changes: { from: range.from, to: endPos, insert: replacement },
           selection: { anchor: range.from + replacement.length },
         });
       };

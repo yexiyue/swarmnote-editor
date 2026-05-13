@@ -35,6 +35,7 @@ import {
 } from './extensions';
 import { createCtrlClickLinksExtension } from './extensions/links/ctrlClickLinksExtension';
 import { createLinkTooltipExtension } from './extensions/links/linkTooltipExtension';
+import { createWikilinkClickExtension } from './extensions/links/wikilinkClickExtension';
 import { insertNewlineContinueMarkup } from './editorCommands/insertNewlineContinueMarkup';
 import { markdownMathExtension } from './plugins/math/markdownMathExtension';
 import { markdownFrontMatterExtension } from './extensions/markdownFrontMatterExtension';
@@ -145,6 +146,11 @@ export function createEditor(
       ? [
           createCtrlClickLinksExtension((url) => {
             onEvent({ kind: EditorEventType.LinkOpen, url });
+          }),
+          createWikilinkClickExtension((target) => {
+            // Wikilink target 复用 LinkOpen channel；host 端按 url 形态路由
+            // （wikilink target 不会以 scheme `://` 开头，host 借此识别）
+            onEvent({ kind: EditorEventType.LinkOpen, url: target });
           }),
         ]
       : []),

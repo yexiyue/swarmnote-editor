@@ -97,6 +97,9 @@ export function selectionToolbarPlugin(
       let current: SelectionToolbarMatch = emptyMatch();
       let dismissTimer: ReturnType<typeof setTimeout> | null = null;
       let currentView: EditorView | null = null;
+      // Notion / BlockNote 风格：drag 期间不显示 toolbar，松开鼠标后才弹。
+      // selectionSet 在 drag 中频繁触发；用此标记跳过 activate。
+      let isMouseDragging = false;
 
       const emit = (view: EditorView) => {
         const cb = view.state.facet(editorEventCallback);
@@ -191,6 +194,13 @@ export function selectionToolbarPlugin(
           return;
         }
 
+        // Drag 中：dismiss 现有 toolbar（如果之前已经弹出），但不 activate 新的
+        // 等待 mouseup 后 re-evaluate
+        if (isMouseDragging) {
+          if (current.active) deactivateNow(view);
+          return;
+        }
+
         // 同 selection 已 active —— 不重 emit（防止 actions 重复计算抖动）
         if (
           current.active &&
@@ -224,7 +234,27 @@ export function selectionToolbarPlugin(
         },
       );
 
-      ctx.registerCmExtensions([extension]);
+      // Notion-style：drag 期间不显示 toolbar，松开鼠标后 evaluate
+      // mouseup 监听 window 而非 contentDOM —— 用户可能 drag 到编辑器外才松开
+      const mouseTracker = EditorView.domEventHandlers({
+        mousedown: () => {
+          isMouseDragging = true;
+        },
+      });
+
+      const windowMouseUp = () => {
+        if (!isMouseDragging) return;
+        isMouseDragging = false;
+        if (currentView) {
+          // 让 CM6 selectionSet 先 settle，下一帧再 evaluate
+          requestAnimationFrame(() => {
+            if (currentView) evaluate(currentView);
+          });
+        }
+      };
+      window.addEventListener('mouseup', windowMouseUp);
+
+      ctx.registerCmExtensions([extension, mouseTracker]);
 
       ctx.registerCommands([
         {
@@ -240,6 +270,7 @@ export function selectionToolbarPlugin(
       return {
         dispose() {
           cancelDismissTimer();
+          window.removeEventListener('mouseup', windowMouseUp);
           currentView = null;
         },
       };
