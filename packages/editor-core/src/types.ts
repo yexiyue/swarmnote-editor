@@ -498,7 +498,8 @@ export interface EditorCommandSpec {
   /** 可选门控：返回 false 时 `execCommand` 直接 no-op */
   when?: (ctx: EditorCommandContext) => boolean;
   /** 命令执行体 */
-  run: (ctx: EditorCommandContext) => void | Promise<void>;
+  /** 命令执行体。`args` 是 `EditorControl.execCommand(id, ...args)` 透传的可变参数。 */
+  run: (ctx: EditorCommandContext, ...args: unknown[]) => void | Promise<void>;
 }
 
 /**

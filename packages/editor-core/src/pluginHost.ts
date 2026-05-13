@@ -68,8 +68,10 @@ export interface PluginHost {
    * 尝试执行 plugin 注册的命令。
    * - 返回 `true`：命中（且已执行 / 被 `when` 否决）
    * - 返回 `false`：未命中，应 fallback 到内置命令
+   *
+   * `args` 透传给命令 `run(ctx, ...args)`。
    */
-  execPluginCommand(view: EditorView, id: string): boolean;
+  execPluginCommand(view: EditorView, id: string, ...args: unknown[]): boolean;
   /**
    * 把内核 emit 的事件分发给所有 `ctx.on` 订阅者。
    * 在内核 emit 路径上调用一次即可。
@@ -161,7 +163,7 @@ export function createPluginHost(
         }
       }
     },
-    execPluginCommand(view, id) {
+    execPluginCommand(view, id, ...args) {
       const spec = state.commands.get(id);
       if (!spec) return false;
       const sel = view.state.selection.main;
@@ -170,7 +172,7 @@ export function createPluginHost(
         selection: createSelectionRange(sel.anchor, sel.head),
       };
       if (spec.when && !spec.when(cmdCtx)) return true;
-      const result = spec.run(cmdCtx);
+      const result = spec.run(cmdCtx, ...args);
       if (result && typeof (result as Promise<unknown>).then === 'function') {
         (result as Promise<unknown>).catch((err) => {
           console.error(`[editor-core] plugin command "${id}" rejected`, err);

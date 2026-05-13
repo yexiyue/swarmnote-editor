@@ -61,6 +61,8 @@ export interface CharTriggerHandle<TItem> {
   next(): void;
   /** 命令调用：activeIndex-1 */
   prev(): void;
+  /** 命令调用：跳到指定 index（鼠标点击 UI 走此路径） */
+  setActiveIndex(index: number): void;
   /**
    * 命令调用：dismiss trigger。`deleteTriggerText` 为 true 时删除 `[from,to]`
    * 区间的文本（slash 默认行为；wikilink 默认 false 保留 `[[query`）。
@@ -316,6 +318,12 @@ export function createCharTriggerStateMachine<TItem>(
         activeIndex:
           (current.activeIndex - 1 + current.items.length) % current.items.length,
       });
+    },
+    setActiveIndex(index) {
+      if (!current.active || current.items.length === 0) return;
+      const clamped = Math.max(0, Math.min(index, current.items.length - 1));
+      if (clamped === current.activeIndex) return;
+      setState({ ...current, activeIndex: clamped });
     },
     dismiss(view, deleteTriggerText) {
       if (!current.active) return;

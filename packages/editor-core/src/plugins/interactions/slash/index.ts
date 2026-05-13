@@ -162,6 +162,57 @@ export function slashCommandPlugin(options?: SlashPluginOptions): EditorPlugin {
 
       ctx.registerCmExtensions([handle.extension, viewRefCapture]);
 
+      const performConfirm = (view: EditorView) => {
+        const range = handle.getState().range;
+        const item = handle.confirm(view);
+        if (!item) return;
+
+        // Notify host (MRU bookkeeping etc.) before commit
+        try {
+          options?.onItemConfirmed?.(item.id);
+        } catch (err) {
+          console.error(`[editor-core] slash onItemConfirmed threw for "${item.id}"`, err);
+        }
+
+        // 先删除 trigger range（`/query` 文本），让 commandId / run 在干净的
+        // 光标位置上执行
+        view.dispatch({ changes: { from: range.from, to: range.to, insert: '' } });
+
+        // commit 优先级：commandId > run（D5 决策）
+        if (item.commandId) {
+          const exec = view.state.facet(execCommandFacet);
+          if (exec.fn) {
+            try {
+              exec.fn(item.commandId);
+            } catch (err) {
+              console.error(
+                `[editor-core] slash item "${item.id}" commandId "${item.commandId}" threw`,
+                err,
+              );
+            }
+            return;
+          }
+          console.warn(
+            `[editor-core] slash item "${item.id}" has commandId "${item.commandId}" but execCommandFacet not wired`,
+          );
+        }
+        if (item.run) {
+          try {
+            const res = item.run({
+              view,
+              range: { from: range.from, to: range.from },
+            });
+            if (res && typeof (res as Promise<unknown>).then === 'function') {
+              (res as Promise<unknown>).catch((err) => {
+                console.error(`[editor-core] slash item "${item.id}" run rejected`, err);
+              });
+            }
+          } catch (err) {
+            console.error(`[editor-core] slash item "${item.id}" run threw`, err);
+          }
+        }
+      };
+
       ctx.registerCommands([
         {
           id: 'slash.next',
@@ -187,54 +238,18 @@ export function slashCommandPlugin(options?: SlashPluginOptions): EditorPlugin {
           when: () => handle.getState().active,
           run({ view }) {
             currentView = view;
-            const range = handle.getState().range;
-            const item = handle.confirm(view);
-            if (!item) return;
-
-            // Notify host (MRU bookkeeping etc.) before commit
-            try {
-              options?.onItemConfirmed?.(item.id);
-            } catch (err) {
-              console.error(`[editor-core] slash onItemConfirmed threw for "${item.id}"`, err);
-            }
-
-            // 先删除 trigger range（`/query` 文本），让 commandId / run 在干净的
-            // 光标位置上执行
-            view.dispatch({ changes: { from: range.from, to: range.to, insert: '' } });
-
-            // commit 优先级：commandId > run（D5 决策）
-            if (item.commandId) {
-              const exec = view.state.facet(execCommandFacet);
-              if (exec.fn) {
-                try {
-                  exec.fn(item.commandId);
-                } catch (err) {
-                  console.error(
-                    `[editor-core] slash item "${item.id}" commandId "${item.commandId}" threw`,
-                    err,
-                  );
-                }
-                return;
-              }
-              console.warn(
-                `[editor-core] slash item "${item.id}" has commandId "${item.commandId}" but execCommandFacet not wired`,
-              );
-            }
-            if (item.run) {
-              try {
-                const res = item.run({
-                  view,
-                  range: { from: range.from, to: range.from },
-                });
-                if (res && typeof (res as Promise<unknown>).then === 'function') {
-                  (res as Promise<unknown>).catch((err) => {
-                    console.error(`[editor-core] slash item "${item.id}" run rejected`, err);
-                  });
-                }
-              } catch (err) {
-                console.error(`[editor-core] slash item "${item.id}" run threw`, err);
-              }
-            }
+            performConfirm(view);
+          },
+        },
+        {
+          id: 'slash.confirmAt',
+          title: 'Slash: confirm at index',
+          when: () => handle.getState().active,
+          run({ view }, ...args) {
+            currentView = view;
+            const index = typeof args[0] === 'number' ? args[0] : 0;
+            handle.setActiveIndex(index);
+            performConfirm(view);
           },
         },
         {

@@ -135,7 +135,7 @@ export class EditorControlImpl implements EditorControl {
     // Plugin 命令优先：若 plugin host 命中（包含 `when` 否决的情况），直接返回。
     // 未命中再 fallback 到内置命令；内置命令最终的 `default` 返回 `undefined`，
     // 因此「禁用 plugin 时无对应内置命令」表现为优雅 no-op。
-    if (this.options.pluginHost.execPluginCommand(this.view, name)) {
+    if (this.options.pluginHost.execPluginCommand(this.view, name, ...args)) {
       return undefined;
     }
     switch (name) {
