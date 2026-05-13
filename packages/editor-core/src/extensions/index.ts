@@ -29,6 +29,6 @@ export {
   searchChangeSourceEffect,
   setSearchState,
 } from './searchExtension';
-export {
-  createBlockMermaidExtension,
-} from './renderBlockMermaid';
+// 已迁到 subpath plugin 的扩展（math / table / mermaid / admonition /
+// codeBlock / blockImage / rawHtml / smartPaste）不在此 barrel 导出。
+// Plugin wrapper 直接从对应 ./renderXxx 文件 import 内部实现。

@@ -32,24 +32,13 @@ import {
   createSearchExtension,
   markdownHighlightExtension,
 } from './extensions';
-import { createBlockCodeExtension } from './extensions/renderBlockCode';
-import { createBlockImageExtension } from './extensions/renderBlockImages';
-import { createBlockMathExtension } from './extensions/renderBlockMath';
-import { createBlockMermaidExtension } from './extensions/renderBlockMermaid';
-import { createBlockTableExtension } from './extensions/renderBlockTables';
-import { createRawHtmlExtension } from './extensions/renderRawHtml';
 import { createCtrlClickLinksExtension } from './extensions/links/ctrlClickLinksExtension';
 import { createLinkTooltipExtension } from './extensions/links/linkTooltipExtension';
-import { createSmartPasteExtension } from './extensions/smartPasteExtension';
-import {
-  createAdmonitionExtension,
-  GFM_TYPES,
-  OBSIDIAN_TYPES,
-} from './extensions/admonition';
 import { insertNewlineContinueMarkup } from './editorCommands/insertNewlineContinueMarkup';
-import { markdownMathExtension } from './extensions/markdownMathExtension';
+import { markdownMathExtension } from './plugins/math/markdownMathExtension';
 import { markdownFrontMatterExtension } from './extensions/markdownFrontMatterExtension';
 import { createLineAwareClipboardExtension } from './extensions/lineAwareClipboardExtension';
+import { createPluginHost, mergeHostCapabilities } from './pluginHost';
 import type { EditorControl, EditorProps } from './types';
 import { createSelectionRange } from './utils/selection';
 
@@ -93,7 +82,20 @@ export function createEditor(
     onEvent,
     imageResolver,
     uploadFile,
+    host,
+    plugins,
   } = props;
+
+  // 合并 deprecated 顶层字段到 host 对象，双字段同存时 warn 一次。
+  const effectiveHost = mergeHostCapabilities(host, imageResolver, uploadFile);
+  // 由 plugin host 收集 register* 调用结果。
+  const pluginHost = createPluginHost(effectiveHost, plugins);
+
+  // Plugin probing：通过 plugin id 集合决定 lezer / inline-rendering 等
+  // 仍由 createEditor 直接控制的扩展是否启用。Block-level 渲染扩展由
+  // plugin 自身经 registerCmExtensions 注入，不在此处重复挂载。
+  const pluginIds = new Set((plugins ?? []).map((p) => p.id));
+  const mathEnabled = pluginIds.has('math');
 
   const settingsRuntime = createEditorSettingsExtension(settings);
 
@@ -104,7 +106,7 @@ export function createEditor(
   const markdownExtensions = [
     ...GFM,
     ...(settings.features.markdownHighlight ? [markdownHighlightExtension] : []),
-    ...(settings.features.mathRendering ? [markdownMathExtension] : []),
+    ...(mathEnabled ? [markdownMathExtension] : []),
     markdownFrontMatterExtension,
   ];
 
@@ -129,24 +131,11 @@ export function createEditor(
       ? [createMarkdownDecorationExtension()]
       : []),
     ...(settings.features.inlineRendering
-      ? [createInlineRenderingExtension({
-          mathRendering: settings.features.mathRendering,
-        })]
+      ? [createInlineRenderingExtension({ mathRendering: mathEnabled })]
       : []),
-    ...(settings.features.blockImageRendering
-      ? [createBlockImageExtension({ resolver: imageResolver }), createBlockTableExtension()]
-      : []),
-    ...(settings.features.rawHtmlRendering
-      ? [createRawHtmlExtension({ resolver: imageResolver })]
-      : []),
-    ...(settings.features.mathRendering ? [createBlockMathExtension()] : []),
-    ...(settings.features.mermaidRendering ? [createBlockMermaidExtension()] : []),
-    ...(settings.features.codeBlockMode !== 'off'
-      ? [createBlockCodeExtension({ mode: settings.features.codeBlockMode })]
-      : []),
-    ...(settings.features.admonition
-      ? [createAdmonitionExtension({ types: { ...GFM_TYPES, ...OBSIDIAN_TYPES } })]
-      : []),
+    // Block-level rendering（math / table / mermaid / admonition / codeBlock /
+    // blockImage / rawHtml / smartPaste）由各自 plugin 通过 registerCmExtensions
+    // 注入；createEditor 不再直接条件挂载。
     ...(onEvent
       ? [
           createCtrlClickLinksExtension((url) => {
@@ -156,7 +145,6 @@ export function createEditor(
       : []),
     createLinkTooltipExtension(),
     createLineAwareClipboardExtension(),
-    ...(settings.features.smartPaste ? [createSmartPasteExtension({ uploadFile })] : []),
     ...(settings.features.collaboration
       ? createCollaborationExtension(collaboration)
       : []),
@@ -218,6 +206,12 @@ export function createEditor(
     );
   }
 
+  // 把 plugin 注册的 CM 扩展追加到末尾，使其相对于内置扩展具备更高优先级
+  // (CM resolves duplicate facet values by registration order)。
+  if (pluginHost.extensions.length) {
+    extensions.push(...pluginHost.extensions);
+  }
+
   const selection = initialSelection
     ? {
         anchor: initialSelection.anchor,
@@ -248,6 +242,7 @@ export function createEditor(
     settingsRuntime,
     scrollMarginsCompartment,
     contentPaddingCompartment,
+    pluginHost,
     onDestroy: onEvent
       ? () => {
           onEvent({ kind: EditorEventType.Remove });

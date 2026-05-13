@@ -35,7 +35,7 @@ import {
   EditorView,
   WidgetType,
 } from '@codemirror/view';
-import { editorEventCallback, EditorEventType } from '../events';
+import { editorEventCallback, EditorEventType } from '../../events';
 
 /** Mermaid 模块缓存 */
 let mermaidModule: typeof import('mermaid') | null = null;

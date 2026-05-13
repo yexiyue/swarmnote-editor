@@ -30,6 +30,7 @@ import {
 import { insertLineAfter } from './editorCommands/insertLineAfter';
 import { sortSelectedLines } from './editorCommands/sortSelectedLines';
 import { jumpToHash } from './editorCommands/jumpToHash';
+import type { PluginHost } from './pluginHost';
 import type {
   EditorCommandType,
   EditorControl,
@@ -67,6 +68,8 @@ export class EditorControlImpl implements EditorControl {
       scrollMarginsCompartment: Compartment;
       /** 内容内边距的动态配置容器（Compartment） */
       contentPaddingCompartment: Compartment;
+      /** Plugin host：管理 plugin 注册的命令、disposable 与实例生命周期 */
+      pluginHost: PluginHost;
       /** 销毁时的回调函数 */
       onDestroy?: () => void;
     },
@@ -129,6 +132,12 @@ export class EditorControlImpl implements EditorControl {
    * @returns 命令执行结果
    */
   execCommand(name: EditorCommandType | string, ...args: unknown[]): unknown {
+    // Plugin 命令优先：若 plugin host 命中（包含 `when` 否决的情况），直接返回。
+    // 未命中再 fallback 到内置命令；内置命令最终的 `default` 返回 `undefined`，
+    // 因此「禁用 plugin 时无对应内置命令」表现为优雅 no-op。
+    if (this.options.pluginHost.execPluginCommand(this.view, name)) {
+      return undefined;
+    }
     switch (name) {
       /** 撤销操作 */
       case 'undo':
@@ -423,7 +432,10 @@ export class EditorControlImpl implements EditorControl {
    * 在 React/Vue 等框架的组件卸载时调用。
    */
   destroy(): void {
+    // 顺序：先派发 onDestroy（host 可能仍要读 view），再 dispose plugin 链，
+    // 最后销毁 CM view（释放 DOM）。
     this.options.onDestroy?.();
+    this.options.pluginHost.destroy();
     this.view.destroy();
   }
 }
