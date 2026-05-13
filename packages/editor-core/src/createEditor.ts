@@ -11,7 +11,7 @@ import { classHighlighter } from '@lezer/highlight';
 
 import { collapseOnSelectionFacet, mouseSelectingExtension } from './core';
 import { EditorControlImpl } from './EditorControl';
-import { editorEventCallback, EditorEventType } from './events';
+import { editorEventCallback, EditorEventType, type EditorEvent } from './events';
 import {
   computeSelectionFormatting,
   cycleHeading,
@@ -174,9 +174,17 @@ export function createEditor(
     ]),
   ];
 
+  // 统一 emit：先调 host onEvent（可能 undefined），再分发给 plugin listener（ctx.on）。
+  // Helper / plugin / widget 通过 `view.state.facet(editorEventCallback)` 拿到此 emit。
+  const emit = (event: EditorEvent) => {
+    onEvent?.(event);
+    pluginHost.dispatchEvent(event);
+  };
+
+  // editorEventCallback facet 总是注入 emit（即使没有 host onEvent，plugin listener 也要工作）
+  extensions.push(editorEventCallback.of(emit));
+
   if (onEvent) {
-    // Expose onEvent to widgets (e.g. table cell context menu) via facet.
-    extensions.push(editorEventCallback.of(onEvent));
     extensions.push(
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {

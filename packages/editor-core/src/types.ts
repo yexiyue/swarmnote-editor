@@ -505,10 +505,10 @@ export interface EditorCommandSpec {
  * 宿主能力聚合。`host: EditorHostCapabilities` 通过 `EditorProps.host`
  * 传入，并通过 `EditorPluginContext.host` 暴露给 plugin。
  *
- * 稳定字段（v0.x 不变）：`resolveImage` / `uploadFile` / `openLink`。
+ * 稳定字段（stable since v0.1）：`resolveImage` / `uploadFile` / `openLink`。
+ * 稳定字段（stable since v0.3）：`getSlashItems`。
  *
- * @unstable 字段 (`searchNotes` / `getSlashItems`) 仅在 v0.1 占住类型表面，
- * shape 在 v0.2 可能调整。
+ * v0.3 移除 v0.1 `searchNotes` 占位字段（被 `getWikilinkItems` 替代，Phase B 加入）。
  */
 export interface EditorHostCapabilities {
   /**
@@ -525,17 +525,18 @@ export interface EditorHostCapabilities {
    */
   openLink?: (url: string) => void | Promise<void>;
   /**
-   * @unstable v0.1 占位，shape 可能在 v0.2 调整。
+   * 返回 slash 菜单的业务候选项列表。
    *
-   * 用于 wikilink / slash 等交互未来跨 plugin 查询笔记列表。
-   */
-  searchNotes?: (query: string) => Promise<unknown[]>;
-  /**
-   * @unstable v0.1 占位，shape 可能在 v0.2 调整。
+   * 在 slash trigger active 期间，`slashCommandPlugin` 在 query 切换时
+   * debounce 150ms 后调用本函数，并把结果与 plugin provider 的结果合并。
    *
-   * 用于 slash 菜单未来从宿主汇集补全项。
+   * `signal` 在 trigger 失活或 query 切换时 abort——host 实现 SHOULD
+   * 检查 `signal.aborted` 并在 abort 后尽早返回（fetch / DB 查询均接受
+   * `signal`）。即便 host 仍 resolve，runtime 也会丢弃 stale 结果。
+   *
+   * Stable since v0.3。
    */
-  getSlashItems?: (query: string) => Promise<unknown[]>;
+  getSlashItems?: (query: string, signal: AbortSignal) => Promise<SlashItem[]>;
 }
 
 /**
@@ -553,28 +554,51 @@ export interface MarkdownRenderRule {
 }
 
 /**
- * @unstable v0.1 仅占类型，未在运行时 dispatch。
+ * Slash 菜单候选项。
  *
- * Slash 菜单候选项提供方。Plugin 通过
- * `ctx.registerSlashItems?.(provider)` 声明对 slash 菜单的贡献。
+ * Plugin 通过 `ctx.registerSlashItems(provider)` 注册的 provider 在被
+ * `slashCommandPlugin` 调用时返回这些项；host 通过 `host.getSlashItems`
+ * 也返回这种 shape。
+ *
+ * Stable since v0.3。Shape 在 v0.x 内只可新增 optional 字段。
  */
-export interface SlashItemProvider {
-  /** 在 `query` 上下文下返回候选项列表（同步或异步） */
-  provide(query: string): unknown[] | Promise<unknown[]>;
+export interface SlashItem {
+  /** 全局唯一 id（plugin-id 前缀推荐：'math.insertBlock'） */
+  id: string;
+  /** 显示标题 */
+  title: string;
+  /** 描述（可选，副标题渲染） */
+  description?: string;
+  /** 图标语义化标识（host 决定如何渲染） */
+  icon?: string;
+  /** 额外 fuzzy 匹配关键词，与 title 一起参与匹配 */
+  keywords?: string[];
+  /** 分组（host 端可分组渲染，如 "插入" / "跳转"） */
+  section?: string;
+  /** 引用已注册的 EditorCommandSpec.id；选中时优先走 execCommand 路径 */
+  commandId?: string;
+  /** 直接 commit 函数；优先级低于 commandId（两者都填时 commandId 优先） */
+  run?: (ctx: { view: EditorView; range: { from: number; to: number } }) => void | Promise<void>;
 }
 
 /**
- * @unstable v0.1 仅占类型，未在运行时 dispatch。
+ * Slash 菜单候选项提供方。Plugin 通过
+ * `ctx.registerSlashItems(provider)` 声明对 slash 菜单的贡献。
  *
- * 触发器规约。Plugin 通过 `ctx.registerTrigger?.(spec)` 注册诸如
- * slash / wikilink / selectionToolbar 等编辑触发逻辑。具体 shape 在
- * v0.2 与 interaction plugin 一同稳定下来。
+ * Stable since v0.3。
  */
-export interface EditorTriggerSpec {
-  /** 触发器 id（slash / wikilink / selectionToolbar 等） */
+export interface SlashItemProvider {
+  /** Provider 唯一 id，用于排序去重 */
   id: string;
-  /** v0.2 会定义匹配 / 事件钩子；v0.1 留作 placeholder */
-  [key: string]: unknown;
+  /** 排序优先级，默认 100；host 注入的 provider 默认 200 */
+  priority?: number;
+  /**
+   * 在 `query` 上下文下返回候选项（同步或异步）。
+   *
+   * `signal` 在 trigger 失活或 query 切换时 abort——async 实现应监听
+   * `signal.aborted` 提前结束工作。
+   */
+  provide(query: string, signal: AbortSignal): SlashItem[] | Promise<SlashItem[]>;
 }
 
 /** 编辑器事件监听器（与 onEvent 同 shape） */
@@ -584,11 +608,12 @@ export type EditorEventListener = (event: EditorEvent) => void;
  * Plugin 的运行时上下文。`setup(ctx)` 接收的唯一参数。
  *
  * Stable 表面（v0.x 不变 shape，只可新增 optional 字段）：
- * - `registerCommands` / `registerCmExtensions` / `registerMarkdownRenderer`
- * - `host`
+ * - `registerCommands` / `registerCmExtensions` / `registerMarkdownRenderer`（stable since v0.1）
+ * - `host`（stable since v0.1）
+ * - `registerSlashItems` / `on`（stable since v0.3）
  *
- * @unstable 表面（v0.2 可能调整）：
- * - `registerSlashItems` / `registerTrigger` / `on`
+ * v0.3 移除 v0.1 `registerTrigger?` 占位（被 `registerSlashItems` /
+ * `registerWikilinkItems` / `registerSelectionToolbarActions` 替代）。
  *
  * 所有 `register*` 都返回 `Disposable`，未显式持有也会由 host 在 destroy
  * 时自动 dispose（反向顺序）。
@@ -604,23 +629,25 @@ export interface EditorPluginContext {
   host: EditorHostCapabilities;
 
   /**
-   * @unstable v0.2 可能调整 shape 与运行时行为。
+   * 注册 slash 菜单候选项提供方。在 `slashCommandPlugin` 加载时，
+   * 这些 provider 会被收集；trigger active 期间被并行调用。
    *
-   * 注册 slash 菜单候选项提供方。v0.1 不实现 runtime（slash 检测延后）。
+   * 即便 `slashCommandPlugin` 未在 `plugins[]` 中，本方法也接受注册
+   * 但 provider 永远不会被调用（不报错）。
+   *
+   * Stable since v0.3。
    */
-  registerSlashItems?(provider: SlashItemProvider): Disposable;
+  registerSlashItems(provider: SlashItemProvider): Disposable;
+
   /**
-   * @unstable v0.2 可能调整 shape 与运行时行为。
-   *
-   * 注册一个触发器规约（slash / wikilink / selectionToolbar 等）。
-   */
-  registerTrigger?(spec: EditorTriggerSpec): Disposable;
-  /**
-   * @unstable v0.2 可能放宽 / 调整事件分层。
-   *
    * 订阅 editor 事件。Plugin 监听内核事件做反应式工作时使用。
+   *
+   * 返回的 Disposable 在 dispose 时会真实移除 listener；editor destroy
+   * 时也会自动 dispose 所有未释放的 listener。
+   *
+   * Stable since v0.3。
    */
-  on?(event: EditorEventType, listener: EditorEventListener): Disposable;
+  on(event: EditorEventType, listener: EditorEventListener): Disposable;
 }
 
 /**

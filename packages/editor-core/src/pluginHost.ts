@@ -1,17 +1,36 @@
-import type { Extension } from '@codemirror/state';
+import { Facet, type Extension } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
+import type { EditorEvent, EditorEventType } from './events';
 import type {
   Disposable,
   EditorCommandContext,
   EditorCommandSpec,
+  EditorEventListener,
   EditorHostCapabilities,
   EditorPlugin,
   EditorPluginContext,
   EditorPluginInstance,
   EditorProps,
   MarkdownRenderRule,
+  SlashItemProvider,
 } from './types';
 import { createSelectionRange } from './utils';
+
+/**
+ * Internal facet: 把 PluginHost.slashProviders 引用暴露给 ViewPlugin。
+ *
+ * 数组本身在 createPluginHost 时建立，后续 `ctx.registerSlashItems` mutate 这个 array
+ * （push/splice 同一 reference）。Facet combine 取首个非空 array 引用并缓存——array
+ * 引用不变，所以 `view.state.facet(slashItemProvidersFacet)` 总是返回 live array。
+ *
+ * NON-PUBLIC：第三方 plugin 不得直接使用此 facet；通过 `ctx.registerSlashItems()` 接入。
+ */
+export const slashItemProvidersFacet = Facet.define<
+  readonly import('./types').SlashItemProvider[],
+  readonly import('./types').SlashItemProvider[]
+>({
+  combine: (values) => values.find((v) => v !== undefined) ?? [],
+});
 
 interface PluginHostState {
   commands: Map<string, EditorCommandSpec>;
@@ -19,17 +38,26 @@ interface PluginHostState {
   renderers: Map<string, MarkdownRenderRule>;
   disposables: Disposable[];
   instances: EditorPluginInstance[];
+  slashProviders: SlashItemProvider[];
+  eventListeners: Map<EditorEventType, Set<EditorEventListener>>;
 }
 
 export interface PluginHost {
   /** Plugin 注册的 CM 扩展，在 createEditor 中合并进 EditorState */
   readonly extensions: readonly Extension[];
+  /** Plugin 注册的 slash provider 列表（供 slashCommandPlugin runtime 读取） */
+  readonly slashProviders: readonly SlashItemProvider[];
   /**
    * 尝试执行 plugin 注册的命令。
    * - 返回 `true`：命中（且已执行 / 被 `when` 否决）
    * - 返回 `false`：未命中，应 fallback 到内置命令
    */
   execPluginCommand(view: EditorView, id: string): boolean;
+  /**
+   * 把内核 emit 的事件分发给所有 `ctx.on` 订阅者。
+   * 在内核 emit 路径上调用一次即可。
+   */
+  dispatchEvent(event: EditorEvent): void;
   /** Editor 销毁时调用：反向 dispose 全部 disposable 与 plugin 实例 */
   destroy(): void;
 }
@@ -85,7 +113,12 @@ export function createPluginHost(
     renderers: new Map(),
     disposables: [],
     instances: [],
+    slashProviders: [],
+    eventListeners: new Map(),
   };
+
+  // 把 slashProviders live 引用注入 facet，slash plugin 的 ViewPlugin 可读
+  state.extensions.push(slashItemProvidersFacet.of(state.slashProviders));
 
   for (const plugin of plugins ?? []) {
     const ctx = createCtx(plugin, host, state);
@@ -96,6 +129,20 @@ export function createPluginHost(
   return {
     get extensions() {
       return state.extensions;
+    },
+    get slashProviders() {
+      return state.slashProviders;
+    },
+    dispatchEvent(event) {
+      const listeners = state.eventListeners.get(event.kind);
+      if (!listeners || listeners.size === 0) return;
+      for (const l of listeners) {
+        try {
+          l(event);
+        } catch (err) {
+          console.error('[editor-core] plugin event listener threw', err);
+        }
+      }
     },
     execPluginCommand(view, id) {
       const spec = state.commands.get(id);
@@ -189,15 +236,31 @@ function createCtx(
         },
       });
     },
-    // @unstable v0.1 占位：注册返回 no-op disposable，runtime 在 v0.2 落地。
-    registerSlashItems() {
-      return trackDisposable({ dispose() {} });
+    registerSlashItems(provider) {
+      state.slashProviders.push(provider);
+      return trackDisposable({
+        dispose() {
+          const idx = state.slashProviders.indexOf(provider);
+          if (idx >= 0) state.slashProviders.splice(idx, 1);
+        },
+      });
     },
-    registerTrigger() {
-      return trackDisposable({ dispose() {} });
-    },
-    on() {
-      return trackDisposable({ dispose() {} });
+    on(event, listener) {
+      let listeners = state.eventListeners.get(event);
+      if (!listeners) {
+        listeners = new Set();
+        state.eventListeners.set(event, listeners);
+      }
+      listeners.add(listener);
+      return trackDisposable({
+        dispose() {
+          const set = state.eventListeners.get(event);
+          if (set) {
+            set.delete(listener);
+            if (set.size === 0) state.eventListeners.delete(event);
+          }
+        },
+      });
     },
   };
 }

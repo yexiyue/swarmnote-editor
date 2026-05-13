@@ -79,10 +79,10 @@ export type {
   EditorSettings,
   EditorSettingsUpdate,
   EditorThemeConfig,
-  EditorTriggerSpec,
   ListType,
   MarkdownRenderRule,
   SearchState,
   SelectionFormatting,
+  SlashItem,
   SlashItemProvider,
 } from './types';
