@@ -1,18 +1,24 @@
 import { Facet } from '@codemirror/state';
-import type { EditorSelectionRange, SearchState, SelectionFormatting } from './types';
+import type {
+  EditorSelectionRange,
+  SearchState,
+  SelectionFormatting,
+  SelectionToolbarAction,
+  SlashItem,
+  WikilinkItem,
+} from './types';
 
 /**
  * 编辑器事件类型常量
  *
  * 事件按稳定性分为三层：
  *
- * - **Core**（v0.x 稳定）：`Change` / `SelectionChange` /
+ * - **Core**（stable since v0.1）：`Change` / `SelectionChange` /
  *   `SelectionFormattingChange` / `Focus` / `Blur` / `SearchStateChange` /
- *   `CollaborationUpdate` / `LinkOpen`。payload 跨平台中立，不含 DOM
- *   坐标或 HTML 字符串。
- * - **Interaction** (`@unstable` v0.1)：`SlashTriggerChange` /
- *   `WikiLinkTriggerChange` / `SelectionToolbarChange`。v0.1 仅占类型，
- *   runtime 在 v0.2 落地，shape 可能调整。
+ *   `CollaborationUpdate` / `LinkOpen`。payload 跨平台中立。
+ * - **Interaction**（`SlashTriggerChange` stable since v0.3；其余 wikilink /
+ *   selectionToolbar 在 Phase B/C 内提升 stable）。Payload DOM-agnostic（含
+ *   可选 `screenRect`，由 web plugin 填）。
  * - **Platform**（platform-coupled）：`TableContextMenu` /
  *   `MermaidZoomRequest` / `Remove`。包含 DOM 坐标 / HTML 字符串等 Web
  *   假设，非 DOM 宿主（如 React Native）下语义可能不同。
@@ -34,20 +40,11 @@ export const EditorEventType = {
   CollaborationUpdate: 'collaborationUpdate',
   /** 链接打开（Core） */
   LinkOpen: 'linkOpen',
-  /**
-   * Slash 触发器状态变化（Interaction, `@unstable`）。
-   * v0.1 不 dispatch，runtime 在 v0.2 落地。
-   */
+  /** Slash 触发器状态变化（Interaction, stable since v0.3）。 */
   SlashTriggerChange: 'slashTriggerChange',
-  /**
-   * Wikilink 触发器状态变化（Interaction, `@unstable`）。
-   * v0.1 不 dispatch，runtime 在 v0.2 落地。
-   */
-  WikiLinkTriggerChange: 'wikiLinkTriggerChange',
-  /**
-   * 选区工具栏状态变化（Interaction, `@unstable`）。
-   * v0.1 不 dispatch，runtime 在 v0.2 落地。
-   */
+  /** Wikilink 触发器状态变化（Interaction, stable since v0.3 phase B）。 */
+  WikilinkTriggerChange: 'wikilinkTriggerChange',
+  /** 选区工具栏状态变化（Interaction, stable since v0.3 phase C）。 */
   SelectionToolbarChange: 'selectionToolbarChange',
   /** 表格右键菜单（Platform-coupled，Web/DOM 假设） */
   TableContextMenu: 'tableContextMenu',
@@ -117,80 +114,103 @@ export interface EditorLinkOpenEvent {
 }
 
 // ---------------------------------------------------------------------------
-// Interaction 事件（@unstable v0.1，runtime 延后到 v0.2）
+// Interaction 事件（SlashTriggerChange stable since v0.3；wikilink/selectionToolbar
+// 在 Phase B/C 提升 stable）
 // ---------------------------------------------------------------------------
 
 /**
- * Slash 触发匹配。CodeMirror 位置（不含 DOM 坐标）。
+ * Slash 触发匹配。DOM-agnostic。
  *
- * 平台 UI 负责根据 `from` / `to` 计算锚定矩形——editor-core 只暴露文档位置。
+ * `range.from` / `range.to` 为 CodeMirror 文档 offset（zero-based 字符索引）；
+ * `screenRect` 由 web 平台 plugin 用 `view.coordsAtPos()` 填，RN 等非 DOM
+ * 宿主下为 undefined。
+ *
+ * Stable since v0.3。Shape 在 v0.x 内只可新增 optional 字段。
  */
 export interface SlashTriggerMatch {
-  /** 触发起点位置（CodeMirror Position） */
-  from: number;
-  /** 触发终点位置（CodeMirror Position） */
-  to: number;
-  /** 当前查询字符串 */
+  /** 触发是否激活；inactive 时其余字段为空值（query: '', items: [], etc.） */
+  active: boolean;
+  /** 当前查询字符串（trigger char 之后到光标的内容） */
   query: string;
+  /** 文档中触发范围；inactive 时 `from === to` */
+  range: { from: number; to: number };
+  /** 当前候选项（已合并 plugin provider + host.getSlashItems、已排序） */
+  items: SlashItem[];
+  /** 高亮项 index（`active: false` 时为 0；`items` 为空时无意义） */
+  activeIndex: number;
+  /** Web 端 anchor 屏幕坐标；非 DOM 宿主下 undefined */
+  screenRect?: { x: number; y: number; width: number; height: number };
 }
 
 /**
- * Wikilink 触发匹配。形态与 `SlashTriggerMatch` 一致，但语义不同。
- */
-export interface WikiLinkTriggerMatch {
-  /** 触发起点位置（CodeMirror Position） */
-  from: number;
-  /** 触发终点位置（CodeMirror Position） */
-  to: number;
-  /** 当前查询字符串 */
-  query: string;
-}
-
-/**
- * 选区工具栏状态。`anchor` / `head` 为 CM Position，不含 DOM 坐标。
- */
-export interface SelectionToolbarState {
-  /** 是否应当显示工具栏 */
-  visible: boolean;
-  /** 选区锚点（CM Position） */
-  anchor: number;
-  /** 选区头部（CM Position） */
-  head: number;
-  /** 当前选区的格式状态 */
-  formatting: SelectionFormatting;
-}
-
-/**
- * @unstable v0.1 仅占类型，runtime 在 v0.2 落地。shape 可能调整。
+ * Wikilink 触发匹配。DOM-agnostic，与 `SlashTriggerMatch` 同 shape 但 items
+ * 类型为 `WikilinkItem`。
  *
- * Slash 触发器状态变化。当 slash 触发被识别 / 取消时 dispatch。
+ * Stable since v0.3 (phase B)。
+ */
+export interface WikilinkTriggerMatch {
+  active: boolean;
+  query: string;
+  range: { from: number; to: number };
+  items: WikilinkItem[];
+  activeIndex: number;
+  screenRect?: { x: number; y: number; width: number; height: number };
+}
+
+/**
+ * SelectionToolbar 匹配。DOM-agnostic。
+ *
+ * `selection.from === selection.to` 时 `active` 必为 false（光标态不触发）。
+ *
+ * Stable since v0.3 (phase C)。
+ */
+export interface SelectionToolbarMatch {
+  active: boolean;
+  /** 选区范围（CM 文档 offset）；inactive 时 `from === to` */
+  selection: { from: number; to: number };
+  /** 当前可用的 toolbar actions（已合并 built-in + plugin + host） */
+  actions: SelectionToolbarAction[];
+  /** 锚定 rect；典型由 web 端用选区第一行的 union rect */
+  screenRect?: { x: number; y: number; width: number; height: number };
+}
+
+/**
+ * Slash 触发器状态变化。当 slash 触发被识别 / query 切换 / activeIndex 切换 /
+ * 触发取消时 dispatch。
+ *
+ * `match.active: false` 表示 trigger 取消；不再使用 `match: null`。
+ *
+ * Stable since v0.3。
  */
 export interface EditorSlashTriggerChangeEvent {
   kind: typeof EditorEventType.SlashTriggerChange;
-  /** 当前匹配；为 null 表示触发被取消 */
-  match: SlashTriggerMatch | null;
+  /** 当前匹配；`match.active: false` 时其余字段为空值（query: '', items: []） */
+  match: SlashTriggerMatch;
 }
 
 /**
- * @unstable v0.1 仅占类型，runtime 在 v0.2 落地。shape 可能调整。
+ * Wikilink 触发器状态变化。当 wikilink 触发被识别 / query 切换 /
+ * activeIndex 切换 / 触发取消时 dispatch。
  *
- * Wikilink 触发器状态变化。
+ * `match.active: false` 表示 trigger 取消；不使用 `match: null`。
+ *
+ * Stable since v0.3 (phase B)。
  */
-export interface EditorWikiLinkTriggerChangeEvent {
-  kind: typeof EditorEventType.WikiLinkTriggerChange;
-  /** 当前匹配；为 null 表示触发被取消 */
-  match: WikiLinkTriggerMatch | null;
+export interface EditorWikilinkTriggerChangeEvent {
+  kind: typeof EditorEventType.WikilinkTriggerChange;
+  match: WikilinkTriggerMatch;
 }
 
 /**
- * @unstable v0.1 仅占类型，runtime 在 v0.2 落地。shape 可能调整。
+ * 选区工具栏状态变化。selection 切换 / focus 变化 / 命令 dismiss 时 dispatch。
  *
- * 选区工具栏状态变化。当用户选中文本 / 取消选中时 dispatch。
+ * `match.active: false` 表示 toolbar 应隐藏。
+ *
+ * Stable since v0.3 (phase C)。
  */
 export interface EditorSelectionToolbarChangeEvent {
   kind: typeof EditorEventType.SelectionToolbarChange;
-  /** 当前工具栏状态 */
-  state: SelectionToolbarState;
+  match: SelectionToolbarMatch;
 }
 
 // ---------------------------------------------------------------------------
@@ -303,7 +323,7 @@ export type EditorCoreEvent =
  */
 export type EditorInteractionEvent =
   | EditorSlashTriggerChangeEvent
-  | EditorWikiLinkTriggerChangeEvent
+  | EditorWikilinkTriggerChangeEvent
   | EditorSelectionToolbarChangeEvent;
 
 /**

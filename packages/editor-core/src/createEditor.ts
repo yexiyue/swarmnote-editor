@@ -11,7 +11,8 @@ import { classHighlighter } from '@lezer/highlight';
 
 import { collapseOnSelectionFacet, mouseSelectingExtension } from './core';
 import { EditorControlImpl } from './EditorControl';
-import { editorEventCallback, EditorEventType } from './events';
+import { editorEventCallback, EditorEventType, type EditorEvent } from './events';
+import { execCommandFacet, type ExecCommandRef } from './pluginHost';
 import {
   computeSelectionFormatting,
   cycleHeading,
@@ -34,6 +35,7 @@ import {
 } from './extensions';
 import { createCtrlClickLinksExtension } from './extensions/links/ctrlClickLinksExtension';
 import { createLinkTooltipExtension } from './extensions/links/linkTooltipExtension';
+import { createWikilinkClickExtension } from './extensions/links/wikilinkClickExtension';
 import { insertNewlineContinueMarkup } from './editorCommands/insertNewlineContinueMarkup';
 import { markdownMathExtension } from './plugins/math/markdownMathExtension';
 import { markdownFrontMatterExtension } from './extensions/markdownFrontMatterExtension';
@@ -91,6 +93,10 @@ export function createEditor(
   // 由 plugin host 收集 register* 调用结果。
   const pluginHost = createPluginHost(effectiveHost, plugins);
 
+  // execCommandFacet：plugin runtime 通过 facet 调 control.execCommand。
+  // mutable ref 配合 facet 单例：control 创建后回填 fn。
+  const execCommandRef: ExecCommandRef = { fn: null };
+
   // Plugin probing：通过 plugin id 集合决定 lezer / inline-rendering 等
   // 仍由 createEditor 直接控制的扩展是否启用。Block-level 渲染扩展由
   // plugin 自身经 registerCmExtensions 注入，不在此处重复挂载。
@@ -141,6 +147,11 @@ export function createEditor(
           createCtrlClickLinksExtension((url) => {
             onEvent({ kind: EditorEventType.LinkOpen, url });
           }),
+          createWikilinkClickExtension((target) => {
+            // Wikilink target 复用 LinkOpen channel；host 端按 url 形态路由
+            // （wikilink target 不会以 scheme `://` 开头，host 借此识别）
+            onEvent({ kind: EditorEventType.LinkOpen, url: target });
+          }),
         ]
       : []),
     createLinkTooltipExtension(),
@@ -174,9 +185,18 @@ export function createEditor(
     ]),
   ];
 
+  // 统一 emit：先调 host onEvent（可能 undefined），再分发给 plugin listener（ctx.on）。
+  // Helper / plugin / widget 通过 `view.state.facet(editorEventCallback)` 拿到此 emit。
+  const emit = (event: EditorEvent) => {
+    onEvent?.(event);
+    pluginHost.dispatchEvent(event);
+  };
+
+  // editorEventCallback facet 总是注入 emit（即使没有 host onEvent，plugin listener 也要工作）
+  extensions.push(editorEventCallback.of(emit));
+  extensions.push(execCommandFacet.of(execCommandRef));
+
   if (onEvent) {
-    // Expose onEvent to widgets (e.g. table cell context menu) via facet.
-    extensions.push(editorEventCallback.of(onEvent));
     extensions.push(
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
@@ -249,6 +269,9 @@ export function createEditor(
         }
       : undefined,
   });
+
+  // 回填 execCommandRef.fn，让 plugin runtime 通过 execCommandFacet 调到。
+  execCommandRef.fn = (id, ...args) => control.execCommand(id, ...args);
 
   if (initialSearchState && settings.features.search) {
     control.setSearchState(initialSearchState, 'initialSearchState');

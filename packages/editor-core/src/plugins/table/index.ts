@@ -5,7 +5,7 @@
  * 宿主提供右键菜单交互。基于 `createBlockTableExtension`。
  */
 import { createBlockTableExtension } from './renderBlockTables';
-import type { EditorPlugin } from '../../types';
+import type { EditorPlugin, SlashItem } from '../../types';
 
 export interface TablePluginOptions {
   // v0.1 暂无可配置项；保留对象以便后续无破坏添加
@@ -16,6 +16,20 @@ export function tablePlugin(_options?: TablePluginOptions): EditorPlugin {
     id: 'table',
     setup(ctx) {
       ctx.registerCmExtensions([createBlockTableExtension()]);
+      ctx.registerSlashItems({
+        id: 'table.builtin',
+        provide: (): SlashItem[] => [
+          {
+            id: 'table.insert',
+            title: 'Table',
+            description: 'Insert a markdown table',
+            icon: '⊞',
+            keywords: ['table', '表格'],
+            section: 'Insert',
+            commandId: 'insertTable',
+          },
+        ],
+      });
     },
   };
 }

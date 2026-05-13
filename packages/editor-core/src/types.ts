@@ -498,17 +498,18 @@ export interface EditorCommandSpec {
   /** 可选门控：返回 false 时 `execCommand` 直接 no-op */
   when?: (ctx: EditorCommandContext) => boolean;
   /** 命令执行体 */
-  run: (ctx: EditorCommandContext) => void | Promise<void>;
+  /** 命令执行体。`args` 是 `EditorControl.execCommand(id, ...args)` 透传的可变参数。 */
+  run: (ctx: EditorCommandContext, ...args: unknown[]) => void | Promise<void>;
 }
 
 /**
  * 宿主能力聚合。`host: EditorHostCapabilities` 通过 `EditorProps.host`
  * 传入，并通过 `EditorPluginContext.host` 暴露给 plugin。
  *
- * 稳定字段（v0.x 不变）：`resolveImage` / `uploadFile` / `openLink`。
+ * 稳定字段（stable since v0.1）：`resolveImage` / `uploadFile` / `openLink`。
+ * 稳定字段（stable since v0.3）：`getSlashItems`。
  *
- * @unstable 字段 (`searchNotes` / `getSlashItems`) 仅在 v0.1 占住类型表面，
- * shape 在 v0.2 可能调整。
+ * v0.3 移除 v0.1 `searchNotes` 占位字段（被 `getWikilinkItems` 替代，Phase B 加入）。
  */
 export interface EditorHostCapabilities {
   /**
@@ -525,17 +526,39 @@ export interface EditorHostCapabilities {
    */
   openLink?: (url: string) => void | Promise<void>;
   /**
-   * @unstable v0.1 占位，shape 可能在 v0.2 调整。
+   * 返回 slash 菜单的业务候选项列表。
    *
-   * 用于 wikilink / slash 等交互未来跨 plugin 查询笔记列表。
+   * 在 slash trigger active 期间，`slashCommandPlugin` 在 query 切换时
+   * debounce 150ms 后调用本函数，并把结果与 plugin provider 的结果合并。
+   *
+   * `signal` 在 trigger 失活或 query 切换时 abort——host 实现 SHOULD
+   * 检查 `signal.aborted` 并在 abort 后尽早返回（fetch / DB 查询均接受
+   * `signal`）。即便 host 仍 resolve，runtime 也会丢弃 stale 结果。
+   *
+   * Stable since v0.3。
    */
-  searchNotes?: (query: string) => Promise<unknown[]>;
+  getSlashItems?: (query: string, signal: AbortSignal) => Promise<SlashItem[]>;
   /**
-   * @unstable v0.1 占位，shape 可能在 v0.2 调整。
+   * 返回 wikilink 菜单的业务候选项（典型：笔记标题）。
    *
-   * 用于 slash 菜单未来从宿主汇集补全项。
+   * 与 `getSlashItems` 同样 debounce + AbortSignal 语义；由 `wikilinkPlugin`
+   * 调用并与 plugin provider 结果合并。
+   *
+   * Stable since v0.3 (phase B)。
    */
-  getSlashItems?: (query: string) => Promise<unknown[]>;
+  getWikilinkItems?: (query: string, signal: AbortSignal) => Promise<WikilinkItem[]>;
+  /**
+   * 返回 selection toolbar 业务 actions（同步签名）。
+   *
+   * 在每次 selection 变化、toolbar 即将激活时调用。host 可基于当前选区
+   * 内容返回业务 actions（如「跳转 wikilink」）；返回 [] 表示无追加。
+   *
+   * Stable since v0.3 (phase C)。
+   */
+  getSelectionToolbarActions?: (selection: {
+    from: number;
+    to: number;
+  }) => SelectionToolbarAction[];
 }
 
 /**
@@ -553,28 +576,120 @@ export interface MarkdownRenderRule {
 }
 
 /**
- * @unstable v0.1 仅占类型，未在运行时 dispatch。
+ * Slash 菜单候选项。
  *
- * Slash 菜单候选项提供方。Plugin 通过
- * `ctx.registerSlashItems?.(provider)` 声明对 slash 菜单的贡献。
+ * Plugin 通过 `ctx.registerSlashItems(provider)` 注册的 provider 在被
+ * `slashCommandPlugin` 调用时返回这些项；host 通过 `host.getSlashItems`
+ * 也返回这种 shape。
+ *
+ * Stable since v0.3。Shape 在 v0.x 内只可新增 optional 字段。
  */
-export interface SlashItemProvider {
-  /** 在 `query` 上下文下返回候选项列表（同步或异步） */
-  provide(query: string): unknown[] | Promise<unknown[]>;
+export interface SlashItem {
+  /** 全局唯一 id（plugin-id 前缀推荐：'math.insertBlock'） */
+  id: string;
+  /** 显示标题 */
+  title: string;
+  /** 描述（可选，副标题渲染） */
+  description?: string;
+  /** 图标语义化标识（host 决定如何渲染） */
+  icon?: string;
+  /** 额外 fuzzy 匹配关键词，与 title 一起参与匹配 */
+  keywords?: string[];
+  /** 分组（host 端可分组渲染，如 "插入" / "跳转"） */
+  section?: string;
+  /**
+   * 排序权重（可选）。若设置，slash plugin runtime 在排序时使用本字段
+   * 覆盖 provider 默认 priority。Host 可用此字段把 MRU items lift 到顶部
+   * （典型：host 给 MRU items 赋 priority 300+）。
+   */
+  priority?: number;
+  /** 引用已注册的 EditorCommandSpec.id；选中时优先走 execCommand 路径 */
+  commandId?: string;
+  /** 直接 commit 函数；优先级低于 commandId（两者都填时 commandId 优先） */
+  run?: (ctx: { view: EditorView; range: { from: number; to: number } }) => void | Promise<void>;
 }
 
 /**
- * @unstable v0.1 仅占类型，未在运行时 dispatch。
+ * Slash 菜单候选项提供方。Plugin 通过
+ * `ctx.registerSlashItems(provider)` 声明对 slash 菜单的贡献。
  *
- * 触发器规约。Plugin 通过 `ctx.registerTrigger?.(spec)` 注册诸如
- * slash / wikilink / selectionToolbar 等编辑触发逻辑。具体 shape 在
- * v0.2 与 interaction plugin 一同稳定下来。
+ * Stable since v0.3。
  */
-export interface EditorTriggerSpec {
-  /** 触发器 id（slash / wikilink / selectionToolbar 等） */
+export interface SlashItemProvider {
+  /** Provider 唯一 id，用于排序去重 */
   id: string;
-  /** v0.2 会定义匹配 / 事件钩子；v0.1 留作 placeholder */
-  [key: string]: unknown;
+  /** 排序优先级，默认 100；host 注入的 provider 默认 200 */
+  priority?: number;
+  /**
+   * 在 `query` 上下文下返回候选项（同步或异步）。
+   *
+   * `signal` 在 trigger 失活或 query 切换时 abort——async 实现应监听
+   * `signal.aborted` 提前结束工作。
+   */
+  provide(query: string, signal: AbortSignal): SlashItem[] | Promise<SlashItem[]>;
+}
+
+/**
+ * Wikilink 候选项。用户输入 `[[query` 触发 wikilink trigger，候选项
+ * 通常是笔记标题；选中后插入 `[[note-title]]` 文本。
+ *
+ * Stable since v0.3 (phase B)。
+ */
+export interface WikilinkItem {
+  /** 全局唯一 id（典型：note path 或 uuid） */
+  id: string;
+  /** 显示标题（即将插入的 `[[<title>]]` 中的 title） */
+  title: string;
+  /** 描述（如 path / breadcrumb，副标题渲染） */
+  description?: string;
+  /** 图标语义化标识 */
+  icon?: string;
+  /** 排序权重（可选），用法同 SlashItem.priority */
+  priority?: number;
+  /**
+   * 选中后的 commit 语义：
+   * - `replaceWithLink`（默认）：替换 `[[query` 为 `[[<title>]]`
+   * - `jumpToNote`：替换为 `[[<title>]]` 后并触发 host 跳转（host 实现 onItemConfirmed）
+   */
+  commit?: 'replaceWithLink' | 'jumpToNote';
+}
+
+/**
+ * Wikilink 候选项提供方。Plugin 通过
+ * `ctx.registerWikilinkItems(provider)` 声明对 wikilink 菜单的贡献。
+ *
+ * Stable since v0.3 (phase B)。
+ */
+export interface WikilinkItemProvider {
+  id: string;
+  priority?: number;
+  provide(query: string, signal: AbortSignal): WikilinkItem[] | Promise<WikilinkItem[]>;
+}
+
+/**
+ * SelectionToolbar action：浮动 toolbar 上的按钮。
+ *
+ * 与 SlashItem 不同，selection toolbar action 永远绑定到已注册的
+ * EditorCommandSpec.id —— toolbar 按钮天然是命令的别名。
+ *
+ * Stable since v0.3 (phase C)。
+ */
+export interface SelectionToolbarAction {
+  /** 全局唯一 id（如 'bold', 'italic', 'strike'） */
+  id: string;
+  /** 鼠标 hover tooltip 文本 */
+  title: string;
+  /** 图标语义化标识 */
+  icon: string;
+  /** 必填：引用 EditorControl.execCommand 的命令名 */
+  commandId: string;
+  /**
+   * 可选：返回当前 selection 上该 action 是否处于「激活」状态。
+   * 用于按钮高亮（如选区已经 bold，bold 按钮显示 pressed 状态）。
+   */
+  isActive?: (state: import('@codemirror/state').EditorState) => boolean;
+  /** 排序权重；同 SlashItem.priority */
+  priority?: number;
 }
 
 /** 编辑器事件监听器（与 onEvent 同 shape） */
@@ -584,11 +699,12 @@ export type EditorEventListener = (event: EditorEvent) => void;
  * Plugin 的运行时上下文。`setup(ctx)` 接收的唯一参数。
  *
  * Stable 表面（v0.x 不变 shape，只可新增 optional 字段）：
- * - `registerCommands` / `registerCmExtensions` / `registerMarkdownRenderer`
- * - `host`
+ * - `registerCommands` / `registerCmExtensions` / `registerMarkdownRenderer`（stable since v0.1）
+ * - `host`（stable since v0.1）
+ * - `registerSlashItems` / `on`（stable since v0.3）
  *
- * @unstable 表面（v0.2 可能调整）：
- * - `registerSlashItems` / `registerTrigger` / `on`
+ * v0.3 移除 v0.1 `registerTrigger?` 占位（被 `registerSlashItems` /
+ * `registerWikilinkItems` / `registerSelectionToolbarActions` 替代）。
  *
  * 所有 `register*` 都返回 `Disposable`，未显式持有也会由 host 在 destroy
  * 时自动 dispose（反向顺序）。
@@ -604,23 +720,40 @@ export interface EditorPluginContext {
   host: EditorHostCapabilities;
 
   /**
-   * @unstable v0.2 可能调整 shape 与运行时行为。
+   * 注册 slash 菜单候选项提供方。在 `slashCommandPlugin` 加载时，
+   * 这些 provider 会被收集；trigger active 期间被并行调用。
    *
-   * 注册 slash 菜单候选项提供方。v0.1 不实现 runtime（slash 检测延后）。
+   * 即便 `slashCommandPlugin` 未在 `plugins[]` 中，本方法也接受注册
+   * 但 provider 永远不会被调用（不报错）。
+   *
+   * Stable since v0.3。
    */
-  registerSlashItems?(provider: SlashItemProvider): Disposable;
+  registerSlashItems(provider: SlashItemProvider): Disposable;
+
   /**
-   * @unstable v0.2 可能调整 shape 与运行时行为。
+   * 注册 wikilink 菜单候选项提供方。语义对称 `registerSlashItems`。
    *
-   * 注册一个触发器规约（slash / wikilink / selectionToolbar 等）。
+   * Stable since v0.3 (phase B)。
    */
-  registerTrigger?(spec: EditorTriggerSpec): Disposable;
+  registerWikilinkItems(provider: WikilinkItemProvider): Disposable;
+
   /**
-   * @unstable v0.2 可能放宽 / 调整事件分层。
+   * 注册 selection toolbar actions。在 `selectionToolbarPlugin` 加载时
+   * 收集；toolbar 激活期间作为额外 actions 合并到内置 default 之后。
    *
+   * Stable since v0.3 (phase C)。
+   */
+  registerSelectionToolbarActions(actions: SelectionToolbarAction[]): Disposable;
+
+  /**
    * 订阅 editor 事件。Plugin 监听内核事件做反应式工作时使用。
+   *
+   * 返回的 Disposable 在 dispose 时会真实移除 listener；editor destroy
+   * 时也会自动 dispose 所有未释放的 listener。
+   *
+   * Stable since v0.3。
    */
-  on?(event: EditorEventType, listener: EditorEventListener): Disposable;
+  on(event: EditorEventType, listener: EditorEventListener): Disposable;
 }
 
 /**

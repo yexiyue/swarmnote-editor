@@ -140,6 +140,9 @@ export function createEditorTheme(config: EditorThemeConfig): Extension {
       '.cm-ext-link': {
         color: c.link,
       },
+      '.cm-wikilink, .cm-wikilink-revealed': {
+        color: c.link,
+      },
       '.cm-blockQuote': {
         borderLeftColor: c.border,
       },

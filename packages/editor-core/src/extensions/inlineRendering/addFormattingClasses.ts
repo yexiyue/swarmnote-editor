@@ -16,7 +16,7 @@ const emphasisDecoration = Decoration.mark({ class: 'cm-ext-em' });
 export const formattingClassesTheme = EditorView.theme({
   '.cm-ext-link, .cm-ext-link span': {
     textDecoration: 'underline',
-    cursor: 'text',
+    cursor: 'pointer',
   },
   '.cm-ext-strikethrough, .cm-ext-strikethrough span': {
     textDecoration: 'line-through',

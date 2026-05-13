@@ -33,12 +33,12 @@ export type {
   EditorSelectionToolbarChangeEvent,
   EditorSlashTriggerChangeEvent,
   EditorTableContextMenuEvent,
-  EditorWikiLinkTriggerChangeEvent,
-  SelectionToolbarState,
+  EditorWikilinkTriggerChangeEvent,
+  SelectionToolbarMatch,
   SlashTriggerMatch,
   TableAlignment,
   TableContextMenuActions,
-  WikiLinkTriggerMatch,
+  WikilinkTriggerMatch,
 } from './events';
 
 // Built-in commands & shared command helpers
@@ -79,10 +79,13 @@ export type {
   EditorSettings,
   EditorSettingsUpdate,
   EditorThemeConfig,
-  EditorTriggerSpec,
   ListType,
   MarkdownRenderRule,
   SearchState,
   SelectionFormatting,
+  SelectionToolbarAction,
+  SlashItem,
   SlashItemProvider,
+  WikilinkItem,
+  WikilinkItemProvider,
 } from './types';

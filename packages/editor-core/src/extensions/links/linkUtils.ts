@@ -32,12 +32,15 @@ export interface LinkInfo {
  */
 export function findLinkAtPosition(pos: number, state: EditorState): LinkInfo | null {
   const tree = syntaxTree(state);
-  // 解析指定位置的节点栈
+  // 解析指定位置的节点栈（从最内层向外 walk）
   let cursor = tree.resolveStack(pos);
 
-  // 向上遍历节点栈
+  // 优先匹配 Link 父节点（`[text](url)`），URL 子节点仅作 bare-URL fallback。
+  // 否则当 pos 在 URL 字符上时会先 short-circuit 返回 URL 子节点的范围
+  // （不含 `[text](`），导致下游 reveal 判定失真。
+  let bareUrlFallback: LinkInfo | null = null;
+
   while (true) {
-    // 检查是否为 Link 节点（Markdown 链接 `[text](url)`）
     if (cursor.node.name === 'Link') {
       const urlNode = cursor.node.getChild('URL');
       if (urlNode) {
@@ -47,19 +50,19 @@ export function findLinkAtPosition(pos: number, state: EditorState): LinkInfo | 
           to: cursor.node.to,
         };
       }
-    } else if (cursor.node.name === 'URL') {
-      // 直接是 URL 节点（裸链接）
-      return {
+    } else if (cursor.node.name === 'URL' && !bareUrlFallback) {
+      // 记录 URL 节点信息，但继续向上找 Link parent；若整棵没有 Link，
+      // 视为 bare autolink，返回 URL 自身范围
+      bareUrlFallback = {
         url: state.sliceDoc(cursor.node.from, cursor.node.to),
         from: cursor.node.from,
         to: cursor.node.to,
       };
     }
 
-    // 移动到父节点
     if (!cursor.next) break;
     cursor = cursor.next;
   }
 
-  return null;  // 未找到链接
+  return bareUrlFallback;
 }
