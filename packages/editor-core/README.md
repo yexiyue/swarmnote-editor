@@ -53,7 +53,25 @@ const editor = createEditor(parentElement, {
 
 ### Plugin SDK
 
-写第三方 plugin 时实现 `EditorPlugin` 接口；`setup(ctx)` 中通过 `ctx.registerCmExtensions` / `ctx.registerCommands` / `ctx.registerMarkdownRenderer` 注册贡献。Stable / `@unstable` 表面划分参见 `EditorPluginContext` TSDoc。
+写第三方 plugin 时实现 `EditorPlugin` 接口；`setup(ctx)` 中通过 register* 方法注册贡献。
+
+**Stable surface (v0.3)** —— v0.1 全部 `@unstable` 表面在 v0.3 都已升级 stable：
+
+```ts
+ctx.registerCommands(specs)             // 命令注册
+ctx.registerCmExtensions(extensions)    // CM6 扩展注入
+ctx.registerMarkdownRenderer(rule)      // 节点级 Markdown 渲染规则
+ctx.registerSlashItems(provider)        // Slash 菜单候选项
+ctx.registerWikilinkItems(provider)     // Wikilink 菜单候选项
+ctx.registerSelectionToolbarActions(arr) // 选区工具栏 actions
+ctx.on(eventType, listener)             // 订阅 editor 事件（disposable）
+ctx.host                                 // 宿主能力聚合
+```
+
+**`host: EditorHostCapabilities` 接受**：
+`resolveImage` / `uploadFile` / `openLink` / `getSlashItems` / `getWikilinkItems` / `getSelectionToolbarActions`。
+
+**Plugin 内置 + 用户可扩展示例**（注册 slash item 引用已有命令）：
 
 ```ts
 import type { EditorPlugin } from "@swarmnote/editor-core";
@@ -63,15 +81,30 @@ export function myPlugin(): EditorPlugin {
     id: "org.example.my-plugin",
     version: "0.1.0",
     setup(ctx) {
+      // 普通命令
       ctx.registerCommands([
         { id: "my-plugin.hello", run: () => console.log("hello") },
       ]);
-      // ctx.registerCmExtensions([...])
-      // ctx.registerMarkdownRenderer({ nodeType: "...", extension: ... })
+      // Notion-style slash item：commandId 引用已注册命令，host popover 选中后自动调
+      ctx.registerSlashItems({
+        id: "my-plugin.slash",
+        provide: () => [
+          {
+            id: "my-plugin.hello",
+            title: "Say hello",
+            icon: "👋",
+            keywords: ["hello", "greet"],
+            section: "Custom",
+            commandId: "my-plugin.hello",
+          },
+        ],
+      });
     },
   };
 }
 ```
+
+详细机制（CharTrigger 抽象 / payload DOM-agnostic / 9 个内置 `slash.*` / `wikilink.*` / `selectionToolbar.*` 命令 / popover click 与 keyboard 协议）见 SwarmNote host 仓 `dev-notes/knowledge/editor.md` 的「Interaction trigger 三类」节。
 
 ## Public API
 
