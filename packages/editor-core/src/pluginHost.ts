@@ -13,6 +13,7 @@ import type {
   EditorProps,
   MarkdownRenderRule,
   SlashItemProvider,
+  WikilinkItemProvider,
 } from './types';
 import { createSelectionRange } from './utils';
 
@@ -28,6 +29,14 @@ import { createSelectionRange } from './utils';
 export const slashItemProvidersFacet = Facet.define<
   readonly import('./types').SlashItemProvider[],
   readonly import('./types').SlashItemProvider[]
+>({
+  combine: (values) => values.find((v) => v !== undefined) ?? [],
+});
+
+/** Internal facet for wikilink providers (mirror of slashItemProvidersFacet). */
+export const wikilinkItemProvidersFacet = Facet.define<
+  readonly import('./types').WikilinkItemProvider[],
+  readonly import('./types').WikilinkItemProvider[]
 >({
   combine: (values) => values.find((v) => v !== undefined) ?? [],
 });
@@ -56,6 +65,7 @@ interface PluginHostState {
   disposables: Disposable[];
   instances: EditorPluginInstance[];
   slashProviders: SlashItemProvider[];
+  wikilinkProviders: WikilinkItemProvider[];
   eventListeners: Map<EditorEventType, Set<EditorEventListener>>;
 }
 
@@ -64,6 +74,8 @@ export interface PluginHost {
   readonly extensions: readonly Extension[];
   /** Plugin 注册的 slash provider 列表（供 slashCommandPlugin runtime 读取） */
   readonly slashProviders: readonly SlashItemProvider[];
+  /** Plugin 注册的 wikilink provider 列表 */
+  readonly wikilinkProviders: readonly WikilinkItemProvider[];
   /**
    * 尝试执行 plugin 注册的命令。
    * - 返回 `true`：命中（且已执行 / 被 `when` 否决）
@@ -133,11 +145,13 @@ export function createPluginHost(
     disposables: [],
     instances: [],
     slashProviders: [],
+    wikilinkProviders: [],
     eventListeners: new Map(),
   };
 
-  // 把 slashProviders live 引用注入 facet，slash plugin 的 ViewPlugin 可读
+  // 把 *Providers live 引用注入 facet，对应 plugin 的 ViewPlugin 可读
   state.extensions.push(slashItemProvidersFacet.of(state.slashProviders));
+  state.extensions.push(wikilinkItemProvidersFacet.of(state.wikilinkProviders));
 
   for (const plugin of plugins ?? []) {
     const ctx = createCtx(plugin, host, state);
@@ -151,6 +165,9 @@ export function createPluginHost(
     },
     get slashProviders() {
       return state.slashProviders;
+    },
+    get wikilinkProviders() {
+      return state.wikilinkProviders;
     },
     dispatchEvent(event) {
       const listeners = state.eventListeners.get(event.kind);
@@ -261,6 +278,15 @@ function createCtx(
         dispose() {
           const idx = state.slashProviders.indexOf(provider);
           if (idx >= 0) state.slashProviders.splice(idx, 1);
+        },
+      });
+    },
+    registerWikilinkItems(provider) {
+      state.wikilinkProviders.push(provider);
+      return trackDisposable({
+        dispose() {
+          const idx = state.wikilinkProviders.indexOf(provider);
+          if (idx >= 0) state.wikilinkProviders.splice(idx, 1);
         },
       });
     },

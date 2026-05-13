@@ -538,6 +538,15 @@ export interface EditorHostCapabilities {
    * Stable since v0.3。
    */
   getSlashItems?: (query: string, signal: AbortSignal) => Promise<SlashItem[]>;
+  /**
+   * 返回 wikilink 菜单的业务候选项（典型：笔记标题）。
+   *
+   * 与 `getSlashItems` 同样 debounce + AbortSignal 语义；由 `wikilinkPlugin`
+   * 调用并与 plugin provider 结果合并。
+   *
+   * Stable since v0.3 (phase B)。
+   */
+  getWikilinkItems?: (query: string, signal: AbortSignal) => Promise<WikilinkItem[]>;
 }
 
 /**
@@ -608,6 +617,43 @@ export interface SlashItemProvider {
   provide(query: string, signal: AbortSignal): SlashItem[] | Promise<SlashItem[]>;
 }
 
+/**
+ * Wikilink 候选项。用户输入 `[[query` 触发 wikilink trigger，候选项
+ * 通常是笔记标题；选中后插入 `[[note-title]]` 文本。
+ *
+ * Stable since v0.3 (phase B)。
+ */
+export interface WikilinkItem {
+  /** 全局唯一 id（典型：note path 或 uuid） */
+  id: string;
+  /** 显示标题（即将插入的 `[[<title>]]` 中的 title） */
+  title: string;
+  /** 描述（如 path / breadcrumb，副标题渲染） */
+  description?: string;
+  /** 图标语义化标识 */
+  icon?: string;
+  /** 排序权重（可选），用法同 SlashItem.priority */
+  priority?: number;
+  /**
+   * 选中后的 commit 语义：
+   * - `replaceWithLink`（默认）：替换 `[[query` 为 `[[<title>]]`
+   * - `jumpToNote`：替换为 `[[<title>]]` 后并触发 host 跳转（host 实现 onItemConfirmed）
+   */
+  commit?: 'replaceWithLink' | 'jumpToNote';
+}
+
+/**
+ * Wikilink 候选项提供方。Plugin 通过
+ * `ctx.registerWikilinkItems(provider)` 声明对 wikilink 菜单的贡献。
+ *
+ * Stable since v0.3 (phase B)。
+ */
+export interface WikilinkItemProvider {
+  id: string;
+  priority?: number;
+  provide(query: string, signal: AbortSignal): WikilinkItem[] | Promise<WikilinkItem[]>;
+}
+
 /** 编辑器事件监听器（与 onEvent 同 shape） */
 export type EditorEventListener = (event: EditorEvent) => void;
 
@@ -645,6 +691,13 @@ export interface EditorPluginContext {
    * Stable since v0.3。
    */
   registerSlashItems(provider: SlashItemProvider): Disposable;
+
+  /**
+   * 注册 wikilink 菜单候选项提供方。语义对称 `registerSlashItems`。
+   *
+   * Stable since v0.3 (phase B)。
+   */
+  registerWikilinkItems(provider: WikilinkItemProvider): Disposable;
 
   /**
    * 订阅 editor 事件。Plugin 监听内核事件做反应式工作时使用。

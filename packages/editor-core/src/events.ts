@@ -4,6 +4,7 @@ import type {
   SearchState,
   SelectionFormatting,
   SlashItem,
+  WikilinkItem,
 } from './types';
 
 /**
@@ -40,11 +41,8 @@ export const EditorEventType = {
   LinkOpen: 'linkOpen',
   /** Slash 触发器状态变化（Interaction, stable since v0.3）。 */
   SlashTriggerChange: 'slashTriggerChange',
-  /**
-   * Wikilink 触发器状态变化（Interaction, `@unstable` until v0.3 phase B）。
-   * v0.3 phase A 内 runtime 不 dispatch。Phase B 将统一改名为 `Wikilink*`（去 CamelCase 大写 L）。
-   */
-  WikiLinkTriggerChange: 'wikiLinkTriggerChange',
+  /** Wikilink 触发器状态变化（Interaction, stable since v0.3 phase B）。 */
+  WikilinkTriggerChange: 'wikilinkTriggerChange',
   /**
    * 选区工具栏状态变化（Interaction, `@unstable` until v0.3 phase C）。
    * v0.3 phase A 内 runtime 不 dispatch。
@@ -147,15 +145,18 @@ export interface SlashTriggerMatch {
 }
 
 /**
- * Wikilink 触发匹配。形态与 `SlashTriggerMatch` 一致，但语义不同。
+ * Wikilink 触发匹配。DOM-agnostic，与 `SlashTriggerMatch` 同 shape 但 items
+ * 类型为 `WikilinkItem`。
+ *
+ * Stable since v0.3 (phase B)。
  */
-export interface WikiLinkTriggerMatch {
-  /** 触发起点位置（CodeMirror Position） */
-  from: number;
-  /** 触发终点位置（CodeMirror Position） */
-  to: number;
-  /** 当前查询字符串 */
+export interface WikilinkTriggerMatch {
+  active: boolean;
   query: string;
+  range: { from: number; to: number };
+  items: WikilinkItem[];
+  activeIndex: number;
+  screenRect?: { x: number; y: number; width: number; height: number };
 }
 
 /**
@@ -187,14 +188,16 @@ export interface EditorSlashTriggerChangeEvent {
 }
 
 /**
- * @unstable v0.1 仅占类型，runtime 在 v0.2 落地。shape 可能调整。
+ * Wikilink 触发器状态变化。当 wikilink 触发被识别 / query 切换 /
+ * activeIndex 切换 / 触发取消时 dispatch。
  *
- * Wikilink 触发器状态变化。
+ * `match.active: false` 表示 trigger 取消；不使用 `match: null`。
+ *
+ * Stable since v0.3 (phase B)。
  */
-export interface EditorWikiLinkTriggerChangeEvent {
-  kind: typeof EditorEventType.WikiLinkTriggerChange;
-  /** 当前匹配；为 null 表示触发被取消 */
-  match: WikiLinkTriggerMatch | null;
+export interface EditorWikilinkTriggerChangeEvent {
+  kind: typeof EditorEventType.WikilinkTriggerChange;
+  match: WikilinkTriggerMatch;
 }
 
 /**
@@ -318,7 +321,7 @@ export type EditorCoreEvent =
  */
 export type EditorInteractionEvent =
   | EditorSlashTriggerChangeEvent
-  | EditorWikiLinkTriggerChangeEvent
+  | EditorWikilinkTriggerChangeEvent
   | EditorSelectionToolbarChangeEvent;
 
 /**

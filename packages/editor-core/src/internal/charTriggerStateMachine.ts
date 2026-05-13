@@ -193,11 +193,10 @@ export function createCharTriggerStateMachine<TItem>(
     if (justTyped !== trig) return false;
 
     // 前一字符必须 whitespace / line start / doc start
+    // 这一规则对所有 char-trigger 统一：避免 `foo[[` / `[/` / `x/` 等中段误触发
     if (cursor - trigLen > 0) {
       const prev = state.doc.sliceString(cursor - trigLen - 1, cursor - trigLen);
-      if (!/\s/.test(prev) && prev !== '[') return false;
-      // 特例：wikilink 用 `[[`，前一字符不能是 `[`（避免 `[[[` 误判）
-      if (trig === '[[' && prev === '[') return false;
+      if (!/\s/.test(prev)) return false;
     }
 
     if (!config.validateContext(state, cursor)) return false;
