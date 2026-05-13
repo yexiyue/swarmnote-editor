@@ -35,8 +35,8 @@ import {
   StateField,
 } from '@codemirror/state';
 import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemirror/view';
-import { editorEventCallback, EditorEventType, type TableContextMenuActions } from '../events';
-import { renderInlineMarkdown } from '../utils/renderInlineMarkdown';
+import { editorEventCallback, EditorEventType, type TableContextMenuActions } from '../../events';
+import { renderInlineMarkdown } from '../../utils/renderInlineMarkdown';
 
 // KaTeX 在表格单元格首次包含内联数学公式时懒加载；
 // CSS 已由 `renderBlockMath.ts` 全局导入。

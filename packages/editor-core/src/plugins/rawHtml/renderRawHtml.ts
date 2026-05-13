@@ -31,8 +31,8 @@ import {
 import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemirror/view';
 import DOMPurify, { type Config as DOMPurifyConfig } from 'dompurify';
 import type { SyntaxNode } from '@lezer/common';
-import { editorEventCallback, EditorEventType } from '../events';
-import type { ImageResolver } from './renderBlockImages';
+import { editorEventCallback, EditorEventType } from '../../events';
+import type { ImageResolver } from '../blockImage/renderBlockImages';
 
 /** CSS 类名前缀 */
 const rawHtmlClassName = 'cm-md-html';

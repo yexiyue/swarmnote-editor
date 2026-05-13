@@ -17,6 +17,116 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./plugins/math": {
+      "import": {
+        "types": "./dist/plugins/math/index.d.mts",
+        "default": "./dist/plugins/math/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/math/index.d.cts",
+        "default": "./dist/plugins/math/index.cjs"
+      }
+    },
+    "./plugins/table": {
+      "import": {
+        "types": "./dist/plugins/table/index.d.mts",
+        "default": "./dist/plugins/table/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/table/index.d.cts",
+        "default": "./dist/plugins/table/index.cjs"
+      }
+    },
+    "./plugins/mermaid": {
+      "import": {
+        "types": "./dist/plugins/mermaid/index.d.mts",
+        "default": "./dist/plugins/mermaid/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/mermaid/index.d.cts",
+        "default": "./dist/plugins/mermaid/index.cjs"
+      }
+    },
+    "./plugins/admonition": {
+      "import": {
+        "types": "./dist/plugins/admonition/index.d.mts",
+        "default": "./dist/plugins/admonition/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/admonition/index.d.cts",
+        "default": "./dist/plugins/admonition/index.cjs"
+      }
+    },
+    "./plugins/codeBlock": {
+      "import": {
+        "types": "./dist/plugins/codeBlock/index.d.mts",
+        "default": "./dist/plugins/codeBlock/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/codeBlock/index.d.cts",
+        "default": "./dist/plugins/codeBlock/index.cjs"
+      }
+    },
+    "./plugins/blockImage": {
+      "import": {
+        "types": "./dist/plugins/blockImage/index.d.mts",
+        "default": "./dist/plugins/blockImage/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/blockImage/index.d.cts",
+        "default": "./dist/plugins/blockImage/index.cjs"
+      }
+    },
+    "./plugins/rawHtml": {
+      "import": {
+        "types": "./dist/plugins/rawHtml/index.d.mts",
+        "default": "./dist/plugins/rawHtml/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/rawHtml/index.d.cts",
+        "default": "./dist/plugins/rawHtml/index.cjs"
+      }
+    },
+    "./plugins/smartPaste": {
+      "import": {
+        "types": "./dist/plugins/smartPaste/index.d.mts",
+        "default": "./dist/plugins/smartPaste/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/smartPaste/index.d.cts",
+        "default": "./dist/plugins/smartPaste/index.cjs"
+      }
+    },
+    "./plugins/interactions/slash": {
+      "import": {
+        "types": "./dist/plugins/interactions/slash/index.d.mts",
+        "default": "./dist/plugins/interactions/slash/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/interactions/slash/index.d.cts",
+        "default": "./dist/plugins/interactions/slash/index.cjs"
+      }
+    },
+    "./plugins/interactions/wikilink": {
+      "import": {
+        "types": "./dist/plugins/interactions/wikilink/index.d.mts",
+        "default": "./dist/plugins/interactions/wikilink/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/interactions/wikilink/index.d.cts",
+        "default": "./dist/plugins/interactions/wikilink/index.cjs"
+      }
+    },
+    "./plugins/interactions/selectionToolbar": {
+      "import": {
+        "types": "./dist/plugins/interactions/selectionToolbar/index.d.mts",
+        "default": "./dist/plugins/interactions/selectionToolbar/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/interactions/selectionToolbar/index.d.cts",
+        "default": "./dist/plugins/interactions/selectionToolbar/index.cjs"
+      }
     }
   },
   "files": [

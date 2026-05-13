@@ -37,8 +37,8 @@ import {
   StateField,
 } from '@codemirror/state';
 import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemirror/view';
-import { shouldShowSource } from '../core';
-import type { CodeBlockMode } from '../types';
+import { shouldShowSource } from '../../core';
+import type { CodeBlockMode } from '../../types';
 
 // ─── 辅助函数 ────────────────────────────────────────────────────
 

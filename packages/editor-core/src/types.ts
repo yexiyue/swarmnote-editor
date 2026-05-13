@@ -1,5 +1,6 @@
+import type { Extension } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
-import type { EditorEvent } from './events';
+import type { EditorEvent, EditorEventType } from './events';
 
 /**
  * 编辑器命令类型枚举
@@ -108,9 +109,19 @@ export type CodeBlockMode = 'off' | 'inline' | 'auto' | 'toggle';
 
 /**
  * 编辑器功能开关配置
- * 
- * 控制编辑器各个功能的启用/禁用状态。
- * 这些开关允许宿主应用根据需求定制编辑器功能。
+ *
+ * 控制编辑器内核（in-core）功能的启用/禁用。v0.1 起以下 7 个字段已迁移
+ * 到 plugin 形态、不再受 features 控制：
+ *
+ * - `mathRendering` → `@swarmnote/editor-core/plugins/math`
+ * - `mermaidRendering` → `@swarmnote/editor-core/plugins/mermaid`
+ * - `blockImageRendering` → `@swarmnote/editor-core/plugins/blockImage`（含 table）
+ * - `rawHtmlRendering` → `@swarmnote/editor-core/plugins/rawHtml`
+ * - `codeBlockMode` → `@swarmnote/editor-core/plugins/codeBlock`（`mode` 选项传入）
+ * - `smartPaste` → `@swarmnote/editor-core/plugins/smartPaste`
+ * - `admonition` → `@swarmnote/editor-core/plugins/admonition`
+ *
+ * 保留的 5 个字段语义不变。`table` 由 blockImage plugin 同时注入（v0.1 行为）。
  */
 export interface EditorFeatureToggles {
   /** Markdown 语法高亮增强 */
@@ -119,27 +130,10 @@ export interface EditorFeatureToggles {
   markdownDecorations: boolean;
   /** 内联渲染（实时预览 Markdown 格式） */
   inlineRendering: boolean;
-  /** 块级图片渲染 */
-  blockImageRendering: boolean;
-  /**
-   * 渲染嵌入在 Markdown 中的原生 HTML（`<img>`、`<picture>`、`<figure>`、
-   * `<details>` 等），通过 DOMPurify 进行安全净化。默认为 true。
-   */
-  rawHtmlRendering: boolean;
-  /** 代码块渲染模式 */
-  codeBlockMode: CodeBlockMode;
-  /** 数学公式渲染（KaTeX） */
-  mathRendering: boolean;
-  /** Mermaid 图表渲染 */
-  mermaidRendering: boolean;
   /** 搜索功能 */
   search: boolean;
   /** 协作编辑（Yjs） */
   collaboration: boolean;
-  /** URL 粘贴转换为链接以及文件拖拽上传。默认为 true。 */
-  smartPaste: boolean;
-  /** Admonition / 提示块渲染（`> [!note]` 等）。默认为 true。 */
-  admonition: boolean;
 }
 
 /** 编辑器外观主题 */
@@ -303,6 +297,10 @@ export interface EditorProps {
    * 解析器可以返回 Promise。在解析完成前，widget 会渲染为无 src 状态
    * （仅占位高度）。如果拒绝或加载错误，widget 会使用退避策略重试最多 3 次，
    * 然后显示回退内容。
+   *
+   * @deprecated v0.1 改用 `host.resolveImage`。该字段在 v0.1 仍会被透明桥接到
+   * `host.resolveImage`，但会在 v1.0 移除。同时提供 `host.resolveImage` 时，
+   * `host.*` 优先，并触发一次 `console.warn`。
    */
   imageResolver?: (src: string) => string | Promise<string>;
   /**
@@ -310,8 +308,28 @@ export interface EditorProps {
    * 接收一个 `File` 对象，返回 URL 和可选的 alt 文本，
    * 这些内容将以 `![alt](url)` Markdown 格式插入到拖拽位置。
    * 如果省略，文件拖拽会被 preventDefault 并静默忽略。
+   *
+   * @deprecated v0.1 改用 `host.uploadFile`。该字段在 v0.1 仍会被透明桥接到
+   * `host.uploadFile`，但会在 v1.0 移除。同时提供 `host.uploadFile` 时，
+   * `host.*` 优先，并触发一次 `console.warn`。
    */
   uploadFile?: (file: File) => Promise<{ url: string; alt?: string }>;
+  /**
+   * 宿主提供的能力聚合体。Plugin 通过 `ctx.host` 访问这些能力，避免每个
+   * 字段都单独传参。
+   *
+   * v0.1 起为推荐 API，deprecated 的顶层 `imageResolver` / `uploadFile`
+   * 仍可工作但会触发桥接逻辑。详见 `EditorHostCapabilities`。
+   */
+  host?: EditorHostCapabilities;
+  /**
+   * 显式声明的 plugin 列表。`createEditor` 会按数组顺序调用每个 plugin 的
+   * `setup(ctx)`，收集它们注册的命令 / CM6 扩展 / Markdown 渲染规则。
+   *
+   * 内置功能 plugin (math / table / mermaid / admonition / codeBlock /
+   * blockImage / rawHtml / smartPaste) 默认不启用，需要显式传入。
+   */
+  plugins?: EditorPlugin[];
 }
 
 /**
@@ -437,6 +455,198 @@ export const DEFAULT_THEME: EditorThemeConfig = {
   appearance: 'light',
 };
 
+// ---------------------------------------------------------------------------
+// Plugin SDK (v0.1)
+// ---------------------------------------------------------------------------
+
+/**
+ * 可释放资源接口。`register*` 系列方法返回的对象，调用 `dispose()` 会撤销
+ * 该次注册。所有未被 plugin 显式 dispose 的 disposable 会在 editor 销毁时
+ * 自动按反向顺序 dispose。
+ */
+export interface Disposable {
+  dispose(): void;
+}
+
+/**
+ * 命令执行时传入的上下文。Plugin 通过它访问 CM6 view / state 与当前选区。
+ * v0.1 字段封闭，不允许扩充——如需新增能力，走 v0.2 minor bump。
+ */
+export interface EditorCommandContext {
+  /** CodeMirror 6 EditorView */
+  view: EditorView;
+  /** 当前选区（规范化后） */
+  selection: EditorSelectionRange;
+}
+
+/**
+ * 命令注册规约。Plugin 通过 `ctx.registerCommands([...])` 注册命令，由
+ * `EditorControl.execCommand(id)` 调度执行。
+ *
+ * v0.1 字段封闭。`group` / `category` / `keybinding` / `argSchema` 等
+ * 额外元数据延至 v0.2+。
+ */
+export interface EditorCommandSpec {
+  /** 命令唯一 id。冲突时 last-wins + console.warn */
+  id: string;
+  /** 命令显示标题（命令面板用） */
+  title?: string;
+  /** 详细描述 */
+  description?: string;
+  /** 图标标识（语义化字符串，宿主决定如何渲染） */
+  icon?: string;
+  /** 可选门控：返回 false 时 `execCommand` 直接 no-op */
+  when?: (ctx: EditorCommandContext) => boolean;
+  /** 命令执行体 */
+  run: (ctx: EditorCommandContext) => void | Promise<void>;
+}
+
+/**
+ * 宿主能力聚合。`host: EditorHostCapabilities` 通过 `EditorProps.host`
+ * 传入，并通过 `EditorPluginContext.host` 暴露给 plugin。
+ *
+ * 稳定字段（v0.x 不变）：`resolveImage` / `uploadFile` / `openLink`。
+ *
+ * @unstable 字段 (`searchNotes` / `getSlashItems`) 仅在 v0.1 占住类型表面，
+ * shape 在 v0.2 可能调整。
+ */
+export interface EditorHostCapabilities {
+  /**
+   * 解析 Markdown 中的相对图片 src → 实际可加载 URL。
+   * 用例：Tauri 的 workspace 相对路径 → `asset://` URL。
+   */
+  resolveImage?: (src: string) => string | Promise<string>;
+  /**
+   * 处理粘贴 / 拖放的文件，返回可插入 Markdown 的 url + alt。
+   */
+  uploadFile?: (file: File) => Promise<{ url: string; alt?: string }>;
+  /**
+   * 打开外部链接。Tauri 等限制 `window.open` 的环境必须实现。
+   */
+  openLink?: (url: string) => void | Promise<void>;
+  /**
+   * @unstable v0.1 占位，shape 可能在 v0.2 调整。
+   *
+   * 用于 wikilink / slash 等交互未来跨 plugin 查询笔记列表。
+   */
+  searchNotes?: (query: string) => Promise<unknown[]>;
+  /**
+   * @unstable v0.1 占位，shape 可能在 v0.2 调整。
+   *
+   * 用于 slash 菜单未来从宿主汇集补全项。
+   */
+  getSlashItems?: (query: string) => Promise<unknown[]>;
+}
+
+/**
+ * Markdown 渲染规则。Plugin 通过 `ctx.registerMarkdownRenderer(rule)`
+ * 声明对某个 lezer markdown 节点的渲染贡献。
+ *
+ * v0.1 形态为「按节点类型注入 CM6 扩展」，与现有 `createBlockXxxExtension`
+ * 内部实现对齐。冲突策略：同 `nodeType` 多次注册时 last-wins + console.warn。
+ */
+export interface MarkdownRenderRule {
+  /** lezer markdown 节点类型名，例如 'CodeBlock' / 'Image' / 'Table' */
+  nodeType: string;
+  /** 对应该节点类型的 CM6 扩展 */
+  extension: Extension | readonly Extension[];
+}
+
+/**
+ * @unstable v0.1 仅占类型，未在运行时 dispatch。
+ *
+ * Slash 菜单候选项提供方。Plugin 通过
+ * `ctx.registerSlashItems?.(provider)` 声明对 slash 菜单的贡献。
+ */
+export interface SlashItemProvider {
+  /** 在 `query` 上下文下返回候选项列表（同步或异步） */
+  provide(query: string): unknown[] | Promise<unknown[]>;
+}
+
+/**
+ * @unstable v0.1 仅占类型，未在运行时 dispatch。
+ *
+ * 触发器规约。Plugin 通过 `ctx.registerTrigger?.(spec)` 注册诸如
+ * slash / wikilink / selectionToolbar 等编辑触发逻辑。具体 shape 在
+ * v0.2 与 interaction plugin 一同稳定下来。
+ */
+export interface EditorTriggerSpec {
+  /** 触发器 id（slash / wikilink / selectionToolbar 等） */
+  id: string;
+  /** v0.2 会定义匹配 / 事件钩子；v0.1 留作 placeholder */
+  [key: string]: unknown;
+}
+
+/** 编辑器事件监听器（与 onEvent 同 shape） */
+export type EditorEventListener = (event: EditorEvent) => void;
+
+/**
+ * Plugin 的运行时上下文。`setup(ctx)` 接收的唯一参数。
+ *
+ * Stable 表面（v0.x 不变 shape，只可新增 optional 字段）：
+ * - `registerCommands` / `registerCmExtensions` / `registerMarkdownRenderer`
+ * - `host`
+ *
+ * @unstable 表面（v0.2 可能调整）：
+ * - `registerSlashItems` / `registerTrigger` / `on`
+ *
+ * 所有 `register*` 都返回 `Disposable`，未显式持有也会由 host 在 destroy
+ * 时自动 dispose（反向顺序）。
+ */
+export interface EditorPluginContext {
+  /** 注册命令。冲突 last-wins。 */
+  registerCommands(specs: EditorCommandSpec[]): Disposable;
+  /** 注册 CM6 扩展。editor 创建期间收集，一次性挂载。 */
+  registerCmExtensions(extensions: readonly Extension[]): Disposable;
+  /** 注册 Markdown 渲染规则。冲突 last-wins。 */
+  registerMarkdownRenderer(rule: MarkdownRenderRule): Disposable;
+  /** 宿主能力聚合体。已合并 deprecated 顶层字段桥接。 */
+  host: EditorHostCapabilities;
+
+  /**
+   * @unstable v0.2 可能调整 shape 与运行时行为。
+   *
+   * 注册 slash 菜单候选项提供方。v0.1 不实现 runtime（slash 检测延后）。
+   */
+  registerSlashItems?(provider: SlashItemProvider): Disposable;
+  /**
+   * @unstable v0.2 可能调整 shape 与运行时行为。
+   *
+   * 注册一个触发器规约（slash / wikilink / selectionToolbar 等）。
+   */
+  registerTrigger?(spec: EditorTriggerSpec): Disposable;
+  /**
+   * @unstable v0.2 可能放宽 / 调整事件分层。
+   *
+   * 订阅 editor 事件。Plugin 监听内核事件做反应式工作时使用。
+   */
+  on?(event: EditorEventType, listener: EditorEventListener): Disposable;
+}
+
+/**
+ * Plugin 返回的实例。v0.1 仅支持 `dispose`（与 register 返回 disposable
+ * 不同的、plugin 自身的清理钩子）。
+ */
+export interface EditorPluginInstance {
+  /** Plugin 自身的销毁钩子，在 editor.destroy() 时调用一次 */
+  dispose?(): void;
+}
+
+/**
+ * Plugin 接口。v0.1 metadata 锁定为 `id` (required) + `version` (optional)。
+ *
+ * 其他元数据（`dependencies` / `settings` / `permission` / `manifest`）
+ * 延至 v1.0+ runtime marketplace 时再加。
+ */
+export interface EditorPlugin {
+  /** 全局唯一 id，例如 'math' / 'org.swarmnote.math' */
+  id: string;
+  /** Plugin 自身版本号（语义化版本字符串） */
+  version?: string;
+  /** 安装钩子。可同步执行，可返回实例供后续 dispose。 */
+  setup(ctx: EditorPluginContext): EditorPluginInstance | void;
+}
+
 export const DEFAULT_SETTINGS: EditorSettings = {
   readonly: false,
   lineWrapping: true,
@@ -451,14 +661,7 @@ export const DEFAULT_SETTINGS: EditorSettings = {
     markdownHighlight: true,
     markdownDecorations: true,
     inlineRendering: true,
-    blockImageRendering: true,
-    rawHtmlRendering: true,
-    codeBlockMode: 'inline',
-    mathRendering: true,
-    mermaidRendering: true,
     search: true,
     collaboration: true,
-    smartPaste: true,
-    admonition: true,
   },
 };

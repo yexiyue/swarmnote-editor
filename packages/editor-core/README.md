@@ -22,19 +22,60 @@ pnpm add @swarmnote/editor-core
 
 ## Usage
 
+v0.1 起内置功能（math / table / mermaid / admonition / codeBlock / blockImage / rawHtml / smartPaste）默认**不启用**，需要通过 `plugins[]` 显式声明。宿主能力通过 `host: EditorHostCapabilities` 注入，而非顶层 `imageResolver` / `uploadFile`（这两个字段保留但已 `@deprecated`）。
+
 ```ts
-import { createEditor } from "@swarmnote/editor-core";
+import { createEditor, DEFAULT_SETTINGS } from "@swarmnote/editor-core";
+import { mathPlugin } from "@swarmnote/editor-core/plugins/math";
+import { tablePlugin } from "@swarmnote/editor-core/plugins/table";
+import { mermaidPlugin } from "@swarmnote/editor-core/plugins/mermaid";
+import { codeBlockPlugin } from "@swarmnote/editor-core/plugins/codeBlock";
+import { blockImagePlugin } from "@swarmnote/editor-core/plugins/blockImage";
 
 const editor = createEditor(parentElement, {
   initialText: "# Hello",
-  settings: { /* EditorSettings */ },
-  theme: { /* EditorThemeConfig */ },
+  settings: DEFAULT_SETTINGS,
+  host: {
+    resolveImage: (src) => convertToAssetUrl(src),
+    openLink: (url) => window.open(url),
+  },
+  plugins: [
+    mathPlugin(),
+    tablePlugin(),
+    mermaidPlugin(),
+    codeBlockPlugin({ mode: "inline" }),
+    blockImagePlugin(),
+  ],
 });
+```
+
+### Plugin SDK
+
+写第三方 plugin 时实现 `EditorPlugin` 接口；`setup(ctx)` 中通过 `ctx.registerCmExtensions` / `ctx.registerCommands` / `ctx.registerMarkdownRenderer` 注册贡献。Stable / `@unstable` 表面划分参见 `EditorPluginContext` TSDoc。
+
+```ts
+import type { EditorPlugin } from "@swarmnote/editor-core";
+
+export function myPlugin(): EditorPlugin {
+  return {
+    id: "org.example.my-plugin",
+    version: "0.1.0",
+    setup(ctx) {
+      ctx.registerCommands([
+        { id: "my-plugin.hello", run: () => console.log("hello") },
+      ]);
+      // ctx.registerCmExtensions([...])
+      // ctx.registerMarkdownRenderer({ nodeType: "...", extension: ... })
+    },
+  };
+}
 ```
 
 ## Public API
 
-公共 API 入口都在 `src/index.ts`：`createEditor`、`EditorControl`、`EditorEventType`、各 command helpers、各 extension factories、类型定义等。
+公共 API 入口都在 `src/index.ts`：`createEditor`、`EditorControl`、`EditorEventType`、各 command helpers、Plugin SDK 类型（`EditorPlugin` / `EditorPluginContext` / `EditorCommandSpec` / `EditorHostCapabilities` / `Disposable` / `MarkdownRenderRule`）以及事件三层分类 union（`EditorCoreEvent` / `EditorInteractionEvent` / `EditorPlatformEvent`）。
+
+8 个功能 plugin 与 3 个 interaction 占位 plugin 通过 subpath 暴露：`@swarmnote/editor-core/plugins/<name>`。主入口不再 re-export 这些 plugin 工厂。
 
 ## Development
 

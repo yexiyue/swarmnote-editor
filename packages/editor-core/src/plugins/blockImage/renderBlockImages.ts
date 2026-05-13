@@ -35,7 +35,7 @@ import {
   keymap,
 } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
-import { editorEventCallback, EditorEventType } from '../events';
+import { editorEventCallback, EditorEventType } from '../../events';
 
 /** 图片元素的 CSS 类名常量 */
 const imageClassName = 'cm-md-image';
