@@ -18,7 +18,9 @@ SwarmNote 的 CodeMirror 6 Markdown 编辑器内核，提供 Markdown Live Previ
 pnpm add @swarmnote/editor-core
 ```
 
-> 该包暂未发布到 npm。当前 SwarmNote / SwarmNote-RN 通过 `pnpm link --global` 接入。详见 monorepo 根 [README](../../README.md#local-development)。
+> 该包暂未发布到 npm。当前 SwarmNote / SwarmNote-RN 通过 `pnpm.overrides` + `link:` 协议接入 sibling 仓。详见 monorepo 根 [README](../../README.md#local-development-with-a-host-repo)。
+>
+> v0.2 起本仓还包含三个姐妹包：`@swarmnote/editor-web`（WebView runtime）、`@swarmnote/editor-react`（桌面 React 组件库）、`@swarmnote/editor-react-native`（RN bridge）。RN host 主线程**不应**直接 import `@swarmnote/editor-core` 主入口——它的 dep graph 含 web-only `@codemirror/*`。RN 端走 `@swarmnote/editor-web/contracts`（type-only）或 WebView。
 
 ## Usage
 

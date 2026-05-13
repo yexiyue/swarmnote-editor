@@ -1,0 +1,51 @@
+{
+  "name": "@swarmnote/editor-react",
+  "version": "0.2.0",
+  "license": "MIT",
+  "description": "React component library for @swarmnote/editor-core. Provides EditorView, I18nContext, and built-in components (EditorToolbar). Host can use built-ins or implement its own.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@swarmnote/editor-core": "workspace:*",
+    "lucide-react": "^0.500.0",
+    "radix-ui": "^1",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "peerDependenciesMeta": {
+    "lucide-react": { "optional": true },
+    "radix-ui": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "lucide-react": "^0.500.0",
+    "radix-ui": "^1.4.3",
+    "react": "^19",
+    "react-dom": "^19",
+    "typescript": "~5.9.2"
+  }
+}

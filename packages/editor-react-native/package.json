@@ -1,0 +1,46 @@
+{
+  "name": "@swarmnote/editor-react-native",
+  "version": "0.2.0",
+  "license": "MIT",
+  "description": "React Native component library for @swarmnote/editor-core via @swarmnote/editor-web WebView. Provides Comlink bridge hooks and I18nContext. UI components (MarkdownEditor, EditorToolbar) deferred to v0.2.1.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@swarmnote/editor-core": "workspace:*",
+    "@swarmnote/editor-web": "workspace:*",
+    "comlink": "^4.4.2",
+    "react": "^19",
+    "react-native": ">=0.83"
+  },
+  "devDependencies": {
+    "@swarmnote/editor-web": "workspace:*",
+    "@types/react": "^19",
+    "comlink": "^4.4.2",
+    "react": "^19",
+    "typescript": "~5.9.2"
+  }
+}
