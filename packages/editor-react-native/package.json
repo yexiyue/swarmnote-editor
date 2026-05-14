@@ -1,6 +1,6 @@
 {
   "name": "@swarmnote/editor-react-native",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "description": "React Native plumbing + WebView bundle for @swarmnote/editor-core. Provides Comlink bridge hooks (useEditorBridge / useEditorFormatting), I18nProvider, and the bundled editor WebView HTML. UI primitives via the shadcn-style registry.",
   "type": "module",

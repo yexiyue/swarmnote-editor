@@ -1,6 +1,6 @@
 {
   "name": "@swarmnote/editor-react",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "description": "React plumbing for @swarmnote/editor-core: EditorView mount wrapper + I18nProvider. UI primitives are distributed via the shadcn-style registry.",
   "type": "module",
@@ -50,8 +50,12 @@
     "react-dom": "^19"
   },
   "peerDependenciesMeta": {
-    "lucide-react": { "optional": true },
-    "radix-ui": { "optional": true }
+    "lucide-react": {
+      "optional": true
+    },
+    "radix-ui": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/react": "^19",

@@ -1,6 +1,6 @@
 {
   "name": "swarmnote-editor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Workspace root for the swarmnote-editor monorepo. The actual packages live under packages/.",

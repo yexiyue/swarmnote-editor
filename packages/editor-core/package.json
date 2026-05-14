@@ -1,6 +1,6 @@
 {
   "name": "@swarmnote/editor-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "type": "module",
   "description": "Markdown-first, live-preview editor core built on CodeMirror 6.",

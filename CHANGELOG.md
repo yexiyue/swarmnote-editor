@@ -5,6 +5,11 @@ this file. This monorepo publishes three npm packages — `@swarmnote/editor-cor
 `@swarmnote/editor-react`, `@swarmnote/editor-react-native` — all bumped in
 lockstep.
 
+## [0.1.1](https://github.com/swarm-apps/swarmnote-editor/releases/tag/v0.1.1) - 2026-05-14
+
+### Documentation
+
+- drop historical narrative from READMEs
 ## [0.1.0](https://github.com/swarm-apps/swarmnote-editor/releases/tag/v0.1.0) - 2026-05-14
 
 ### CI/CD
