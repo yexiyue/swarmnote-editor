@@ -1,15 +1,20 @@
 {
   "name": "swarmnote-editor",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Workspace root for the swarmnote-editor monorepo. The actual packages live under packages/.",
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r --if-present test",
+    "changelog": "git-cliff -o CHANGELOG.md",
+    "changelog:unreleased": "git-cliff --unreleased",
+    "release": "node scripts/release.mjs"
   },
   "devDependencies": {
+    "git-cliff": "^2.12.0",
     "tsdown": "^0.22.0",
     "typescript": "~5.9.2"
   },

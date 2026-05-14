@@ -1,9 +1,22 @@
 {
   "name": "@swarmnote/editor-react",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "license": "MIT",
-  "description": "React component library for @swarmnote/editor-core. Provides EditorView, I18nContext, and built-in components (EditorToolbar). Host can use built-ins or implement its own.",
+  "description": "React plumbing for @swarmnote/editor-core: EditorView mount wrapper + I18nProvider. UI primitives are distributed via the shadcn-style registry.",
   "type": "module",
+  "homepage": "https://github.com/swarm-apps/swarmnote-editor#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/swarm-apps/swarmnote-editor.git",
+    "directory": "packages/editor-react"
+  },
+  "bugs": {
+    "url": "https://github.com/swarm-apps/swarmnote-editor/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
@@ -26,7 +39,8 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepack": "pnpm build"
   },
   "peerDependencies": {
     "@swarmnote/editor-core": "workspace:*",

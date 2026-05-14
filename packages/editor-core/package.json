@@ -4,6 +4,19 @@
   "license": "MIT",
   "type": "module",
   "description": "Markdown-first, live-preview editor core built on CodeMirror 6.",
+  "homepage": "https://github.com/swarm-apps/swarmnote-editor#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/swarm-apps/swarmnote-editor.git",
+    "directory": "packages/editor-core"
+  },
+  "bugs": {
+    "url": "https://github.com/swarm-apps/swarmnote-editor/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
