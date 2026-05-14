@@ -183,7 +183,8 @@ export function slashCommandPlugin(options?: SlashPluginOptions): EditorPlugin {
           const exec = view.state.facet(execCommandFacet);
           if (exec.fn) {
             try {
-              exec.fn(item.commandId);
+              const args = item.commandArgs ?? [];
+              exec.fn(item.commandId, ...args);
             } catch (err) {
               console.error(
                 `[editor-core] slash item "${item.id}" commandId "${item.commandId}" threw`,

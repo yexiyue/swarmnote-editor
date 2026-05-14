@@ -37,7 +37,7 @@ export function mathPlugin(_options?: MathPluginOptions): EditorPlugin {
             id: 'math.insertBlock',
             title: 'Math block',
             description: 'Insert a $$...$$ math block',
-            icon: '∑',
+            icon: 'sigma',
             keywords: ['math', 'equation', 'latex', '数学', '公式'],
             section: 'Insert',
             run: ({ view, range }) => {

@@ -582,6 +582,12 @@ export interface MarkdownRenderRule {
  * `slashCommandPlugin` 调用时返回这些项；host 通过 `host.getSlashItems`
  * 也返回这种 shape。
  *
+ * **Comlink 序列化约束**：当 host 是 React Native 走 WebView Comlink RPC 时，
+ * items 跨进程序列化。**必须使用 `commandId` + `commandArgs` 路径**，
+ * 不可用 `run` closure —— 函数不可跨 Comlink 序列化。桌面 host（同进程）
+ * 可以用 `run` closure 实现自定义动作。建议第三方 plugin 全部走 commandId
+ * 路径以保证跨平台兼容。
+ *
  * Stable since v0.3。Shape 在 v0.x 内只可新增 optional 字段。
  */
 export interface SlashItem {
@@ -605,7 +611,21 @@ export interface SlashItem {
   priority?: number;
   /** 引用已注册的 EditorCommandSpec.id；选中时优先走 execCommand 路径 */
   commandId?: string;
-  /** 直接 commit 函数；优先级低于 commandId（两者都填时 commandId 优先） */
+  /**
+   * 传给 commandId 的参数（typical 用例：`toggleHeading` 需要 level 参数）。
+   * 仅在 `commandId` 也设置时生效；slash plugin 内部 `exec.fn(commandId, ...args)`。
+   *
+   * 必须是 JSON-serializable —— host 通过 Comlink 跨 WebView 时，函数 / Symbol /
+   * EditorView 等都不可序列化。
+   */
+  commandArgs?: unknown[];
+  /**
+   * 直接 commit 函数；优先级低于 commandId（两者都填时 commandId 优先）。
+   *
+   * **不可跨 Comlink** —— RN host 通过 WebView 序列化 items 时，函数会丢失
+   * 为 `undefined`。RN host items 必须用 `commandId + commandArgs` 路径。
+   * 仅桌面 host（同进程）可用 `run` 闭包。
+   */
   run?: (ctx: { view: EditorView; range: { from: number; to: number } }) => void | Promise<void>;
 }
 

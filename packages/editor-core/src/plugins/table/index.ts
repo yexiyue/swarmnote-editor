@@ -23,7 +23,7 @@ export function tablePlugin(_options?: TablePluginOptions): EditorPlugin {
             id: 'table.insert',
             title: 'Table',
             description: 'Insert a markdown table',
-            icon: '⊞',
+            icon: 'table',
             keywords: ['table', '表格'],
             section: 'Insert',
             commandId: 'insertTable',

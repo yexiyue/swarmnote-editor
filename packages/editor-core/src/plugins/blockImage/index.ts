@@ -36,7 +36,7 @@ export function blockImagePlugin(options?: BlockImagePluginOptions): EditorPlugi
             id: 'blockImage.insert',
             title: 'Image',
             description: 'Insert an image (paste / replace url after `![]()`)',
-            icon: '🖼',
+            icon: 'image',
             keywords: ['image', 'img', 'picture', '图片'],
             section: 'Insert',
             run: ({ view, range }) => {

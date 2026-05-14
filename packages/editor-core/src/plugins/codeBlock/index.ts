@@ -36,7 +36,7 @@ export function codeBlockPlugin(options?: CodeBlockPluginOptions): EditorPlugin 
             id: 'codeBlock.insert',
             title: 'Code block',
             description: 'Insert a fenced code block',
-            icon: '⌨',
+            icon: 'square-code',
             keywords: ['code', 'block', '代码块', 'fenced'],
             section: 'Insert',
             commandId: 'insertCodeBlock',
