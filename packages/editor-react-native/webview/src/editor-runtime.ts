@@ -16,15 +16,67 @@ import {
   EditorEventType,
   type EditorControl,
   type EditorEvent,
+  type EditorPlugin,
   type EditorSettingsUpdate,
 } from '@swarmnote/editor-core';
+import { admonitionPlugin } from '@swarmnote/editor-core/plugins/admonition';
+import { blockImagePlugin } from '@swarmnote/editor-core/plugins/blockImage';
+import { codeBlockPlugin } from '@swarmnote/editor-core/plugins/codeBlock';
+import { selectionToolbarPlugin } from '@swarmnote/editor-core/plugins/interactions/selectionToolbar';
+import { slashCommandPlugin } from '@swarmnote/editor-core/plugins/interactions/slash';
+import { wikilinkPlugin } from '@swarmnote/editor-core/plugins/interactions/wikilink';
+import { mathPlugin } from '@swarmnote/editor-core/plugins/math';
+import { mermaidPlugin } from '@swarmnote/editor-core/plugins/mermaid';
+import { rawHtmlPlugin } from '@swarmnote/editor-core/plugins/rawHtml';
+import { smartPastePlugin } from '@swarmnote/editor-core/plugins/smartPaste';
+import { tablePlugin } from '@swarmnote/editor-core/plugins/table';
 import { debugLog } from './comlink-endpoint';
 import type {
   AwarenessUserState,
   EditorApi,
   HostApi,
+  RuntimeCodeBlockMode,
   RuntimeCreateEditorOptions,
+  RuntimePluginId,
 } from './types';
+
+const DEFAULT_ENABLED_PLUGIN_IDS: readonly RuntimePluginId[] = [
+  'math',
+  'table',
+  'mermaid',
+  'admonition',
+  'codeBlock',
+  'blockImage',
+  'rawHtml',
+  'smartPaste',
+  'slash',
+  'wikilink',
+  'selectionToolbar',
+];
+
+/**
+ * Map opt-in plugin ids to plugin instances. `enabledIds` order is preserved
+ * so consumers can influence relative plugin priority (rare but useful).
+ */
+function buildEditorPlugins(
+  enabledIds: readonly RuntimePluginId[],
+  codeBlockMode: RuntimeCodeBlockMode,
+): EditorPlugin[] {
+  const enabled = new Set<RuntimePluginId>(enabledIds);
+  const plugins: EditorPlugin[] = [];
+  if (enabled.has('math')) plugins.push(mathPlugin());
+  if (enabled.has('table')) plugins.push(tablePlugin());
+  if (enabled.has('mermaid')) plugins.push(mermaidPlugin());
+  if (enabled.has('admonition')) plugins.push(admonitionPlugin());
+  if (enabled.has('codeBlock')) plugins.push(codeBlockPlugin({ mode: codeBlockMode }));
+  if (enabled.has('blockImage')) plugins.push(blockImagePlugin());
+  if (enabled.has('rawHtml')) plugins.push(rawHtmlPlugin());
+  if (enabled.has('smartPaste')) plugins.push(smartPastePlugin());
+  if (enabled.has('slash')) plugins.push(slashCommandPlugin());
+  if (enabled.has('wikilink')) plugins.push(wikilinkPlugin());
+  if (enabled.has('selectionToolbar')) plugins.push(selectionToolbarPlugin());
+  return plugins;
+}
 
 const REMOTE_COLLABORATION_ORIGIN = 'remote';
 const REMOTE_AWARENESS_ORIGIN = 'remote-awareness';
@@ -227,6 +279,10 @@ export function createEditorRuntime(host: HostApi): EditorApi {
       );
 
       try {
+        const enabledPluginIds = options.enabledPluginIds ?? DEFAULT_ENABLED_PLUGIN_IDS;
+        const codeBlockMode = options.codeBlockMode ?? 'inline';
+        const plugins = buildEditorPlugins(enabledPluginIds, codeBlockMode);
+
         state.editor = createEditor(root, {
           initialText: options.initialText,
           initialSelection: options.initialSelection,
@@ -235,6 +291,13 @@ export function createEditorRuntime(host: HostApi): EditorApi {
           autofocus: options.autofocus,
           collaboration: createCollaborationConfig(options),
           imageResolver: createWorkspaceImageResolver(options.workspacePath),
+          plugins,
+          // v0.4: bridge host slash/wikilink providers across Comlink. The
+          // AbortSignal is consumed locally — RN side gets only the query.
+          host: {
+            getSlashItems: async (query, _signal) => host.getSlashItems(query),
+            getWikilinkItems: async (query, _signal) => host.getWikilinkItems(query),
+          },
           onEvent(event) {
             emitEditorEvent(event);
           },

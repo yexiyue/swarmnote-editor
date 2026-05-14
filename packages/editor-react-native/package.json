@@ -1,9 +1,22 @@
 {
   "name": "@swarmnote/editor-react-native",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "license": "MIT",
-  "description": "React Native component library for @swarmnote/editor-core via @swarmnote/editor-web WebView. Provides Comlink bridge hooks and I18nContext. UI components (MarkdownEditor, EditorToolbar) deferred to v0.2.1.",
+  "description": "React Native plumbing + WebView bundle for @swarmnote/editor-core. Provides Comlink bridge hooks (useEditorBridge / useEditorFormatting), I18nProvider, and the bundled editor WebView HTML. UI primitives via the shadcn-style registry.",
   "type": "module",
+  "homepage": "https://github.com/swarm-apps/swarmnote-editor#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/swarm-apps/swarmnote-editor.git",
+    "directory": "packages/editor-react-native"
+  },
+  "bugs": {
+    "url": "https://github.com/swarm-apps/swarmnote-editor/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
@@ -17,30 +30,50 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
-    }
+    },
+    "./contracts": {
+      "import": {
+        "types": "./dist/contracts.d.mts",
+        "default": "./dist/contracts.mjs"
+      },
+      "require": {
+        "types": "./dist/contracts.d.cts",
+        "default": "./dist/contracts.cjs"
+      }
+    },
+    "./webview": "./dist/webview/index.html"
   },
   "files": [
     "dist",
-    "src",
     "README.md"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "pnpm build:tsdown && pnpm build:vite",
+    "build:tsdown": "tsdown",
+    "build:vite": "vite build --config webview/vite.config.ts",
     "dev": "tsdown --watch",
-    "typecheck": "tsc --noEmit"
+    "dev:webview": "vite --config webview/vite.config.ts",
+    "typecheck": "tsc --noEmit",
+    "prepack": "pnpm build"
   },
   "peerDependencies": {
     "@swarmnote/editor-core": "workspace:*",
-    "@swarmnote/editor-web": "workspace:*",
     "comlink": "^4.4.2",
     "react": "^19",
     "react-native": ">=0.83"
   },
   "devDependencies": {
-    "@swarmnote/editor-web": "workspace:*",
     "@types/react": "^19",
     "comlink": "^4.4.2",
+    "dompurify": "^3.4.2",
+    "katex": "^0.16.45",
+    "mermaid": "^10.6.0",
     "react": "^19",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vite": "^8.0.8",
+    "vite-plugin-singlefile": "^2.3.2",
+    "y-codemirror.next": "^0.3.5",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.20"
   }
 }

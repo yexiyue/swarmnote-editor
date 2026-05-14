@@ -8,6 +8,11 @@ import type {
   EditorSettingsUpdate,
   SearchState,
   SelectionFormatting,
+  SelectionToolbarMatch,
+  SlashItem,
+  SlashTriggerMatch,
+  WikilinkItem,
+  WikilinkTriggerMatch,
 } from '@swarmnote/editor-core';
 
 export type {
@@ -20,6 +25,11 @@ export type {
   EditorSettingsUpdate,
   SearchState,
   SelectionFormatting,
+  SelectionToolbarMatch,
+  SlashItem,
+  SlashTriggerMatch,
+  WikilinkItem,
+  WikilinkTriggerMatch,
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -66,4 +76,13 @@ export const EditorEventType = {
   Remove: 'remove',
   TableContextMenu: 'tableContextMenu',
   MermaidZoomRequest: 'mermaidZoomRequest',
+  /**
+   * Interaction trio events — emitted by built-in `slashCommandPlugin` /
+   * `wikilinkPlugin` / `selectionToolbarPlugin` and forwarded by editor-web
+   * to RN host via `host.onEditorEvent`. Stable as of v0.4. Types from
+   * `@swarmnote/editor-core` (re-exported above).
+   */
+  SlashTriggerChange: 'slashTriggerChange',
+  WikilinkTriggerChange: 'wikilinkTriggerChange',
+  SelectionToolbarChange: 'selectionToolbarChange',
 } as const;

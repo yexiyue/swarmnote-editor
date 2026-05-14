@@ -1,3 +1,4 @@
+import type { SlashItem, WikilinkItem } from '@swarmnote/editor-core';
 import type {
   EditorCollaborationConfig,
   EditorCommandType,
@@ -7,6 +8,22 @@ import type {
   EditorSettingsUpdate,
   SearchState,
 } from './contracts';
+
+/** Built-in plugin ids the editor-web runtime knows how to enable. */
+export type RuntimePluginId =
+  | 'math'
+  | 'table'
+  | 'mermaid'
+  | 'admonition'
+  | 'codeBlock'
+  | 'blockImage'
+  | 'rawHtml'
+  | 'smartPaste'
+  | 'slash'
+  | 'wikilink'
+  | 'selectionToolbar';
+
+export type RuntimeCodeBlockMode = 'inline' | 'auto' | 'toggle';
 
 export interface RuntimeInitOptions {
   initialText: string;
@@ -22,6 +39,17 @@ export interface RuntimeInitOptions {
    * Absolute schemes (http/https/data/blob/asset/file/tauri) pass through.
    */
   workspacePath?: string;
+  /**
+   * List of built-in plugin ids to enable. Order is preserved. Omit to
+   * enable the default full set (all 11 plugins). Pass `[]` to disable all.
+   *
+   * v0.4: added so RN hosts can wire feature toggles to the WebView editor.
+   * Without this, the WebView ran with zero plugins — table / math / mermaid
+   * / slash / wikilink / selection toolbar were all silently disabled.
+   */
+  enabledPluginIds?: readonly RuntimePluginId[];
+  /** codeBlock plugin rendering mode. Defaults to 'inline'. */
+  codeBlockMode?: RuntimeCodeBlockMode;
 }
 
 export interface RuntimeCreateEditorOptions extends RuntimeInitOptions {}
@@ -82,6 +110,26 @@ export interface HostApi {
    *  by design, no Uint8Array — safe inside event objects. */
   onPresenceChange(users: AwarenessUserState[]): void;
   log(message: string): void;
+  /**
+   * v0.4: provide slash command items for the current query. Called by the
+   * editor's slashCommandPlugin when the user types `/`. Returns empty array
+   * when host has no items (popover shows "no matching"). Items SHOULD use
+   * `commandId` + `commandArgs` instead of `run` closures — closures don't
+   * survive Comlink serialization.
+   *
+   * `AbortSignal` is intentionally not part of this RPC: signal objects don't
+   * cross Comlink. The editor's internal stale-response handling discards
+   * superseded queries based on local match revision.
+   */
+  getSlashItems(query: string): Promise<SlashItem[]>;
+  /**
+   * v0.4: provide wikilink items for the current query. Same Comlink
+   * serialization rule applies — items must be JSON-serializable. Items
+   * with `commit: 'replaceWithLink'` work transparently; `commit:
+   * 'jumpToNote'` requires host to subscribe to the on-confirm event
+   * (separate mechanism).
+   */
+  getWikilinkItems(query: string): Promise<WikilinkItem[]>;
 }
 
 export interface RuntimeState {

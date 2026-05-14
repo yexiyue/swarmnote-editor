@@ -1,19 +1,23 @@
 /**
- * @swarmnote/editor-react-native — React Native bridge + Comlink hooks for
- * `@swarmnote/editor-web` WebView runtime.
+ * @swarmnote/editor-react-native — React Native bridge + WebView bundle for
+ * `@swarmnote/editor-core`.
  *
- * v0.2 surface:
+ * v0.4 surface:
  * - `useEditorBridge` — Comlink bridge hook
  * - `useEditorFormatting` — selection formatting state hook
  * - `createRNEndpoint` / `registerTransferHandlers` / `WebViewRef` — bridge primitives
  * - `I18nProvider` / `useT` — translation injection
  *
- * Built-in UI components (MarkdownEditor / EditorToolbar / EditorHeadingSheet)
- * deferred to v0.2.1 — see [`split-editor-react-packages` design.md D12]
- * for the component-library decision rationale.
+ * The WebView HTML bundle ships in `./webview/index.html` (via the
+ * `./webview` package export). Load it with `Asset.fromModule(require(
+ * '@swarmnote/editor-react-native/webview'))` in your RN host.
  *
- * Host can construct its own WebView wrapper by combining `useEditorBridge`
- * with its preferred UI primitives until v0.2.1 ships built-ins.
+ * Types and constants used by RN host (event kinds, init options, etc.)
+ * are re-exported via the `./contracts` subpath:
+ *   `import { EditorEventType, ... } from '@swarmnote/editor-react-native/contracts'`.
+ *
+ * UI components (MarkdownEditor / EditorToolbar / Slash sheet / ...) ship
+ * via the shadcn-style registry at `swarmnote-editor/registry/react-native/`.
  */
 
 export { useEditorBridge } from './useEditorBridge';

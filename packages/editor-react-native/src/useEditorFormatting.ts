@@ -3,7 +3,7 @@ import {
   type EditorEvent,
   EditorEventType,
   type SelectionFormatting,
-} from "@swarmnote/editor-web/contracts";
+} from "./contracts";
 import { useCallback, useState } from "react";
 
 interface EditorFormattingBridge {

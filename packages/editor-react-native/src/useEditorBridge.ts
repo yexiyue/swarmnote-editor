@@ -3,7 +3,9 @@ import type {
   EditorApi,
   EditorEvent,
   HostApi,
-} from "@swarmnote/editor-web/contracts";
+  SlashItem,
+  WikilinkItem,
+} from "./contracts";
 import * as Comlink from "comlink";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
@@ -28,6 +30,17 @@ interface UseEditorBridgeOptions {
    *  RN cannot read the WebView's Awareness directly, so this is the channel
    *  for PresenceAvatars / online-list UI. */
   onPresenceChange?: (users: AwarenessUserState[]) => void;
+  /**
+   * v0.4: optional slash command items provider. Called by the WebView
+   * editor's slashCommandPlugin via Comlink RPC when `/` is typed.
+   * Return JSON-serializable items (use `commandId` + `commandArgs`, not
+   * `run` closures). Default `() => []` when omitted.
+   */
+  getSlashItems?: (query: string) => Promise<SlashItem[]> | SlashItem[];
+  /**
+   * v0.4: optional wikilink items provider for `[[` triggers.
+   */
+  getWikilinkItems?: (query: string) => Promise<WikilinkItem[]> | WikilinkItem[];
 }
 
 interface EditorBridge {
@@ -78,6 +91,14 @@ export function useEditorBridge(options: UseEditorBridgeOptions = {}): EditorBri
       },
       log(message: string) {
         console.log("[Editor WebView]", message);
+      },
+      async getSlashItems(query: string) {
+        const result = await optionsRef.current.getSlashItems?.(query);
+        return result ?? [];
+      },
+      async getWikilinkItems(query: string) {
+        const result = await optionsRef.current.getWikilinkItems?.(query);
+        return result ?? [];
       },
     };
 
