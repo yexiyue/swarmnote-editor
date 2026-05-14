@@ -23,7 +23,7 @@
 
 UI primitives（popover / toolbar / sheet）通过 **shadcn 风格 registry** 分发（Tailwind / NativeWind / Radix / RN-Reusables），不打包进 npm 包。
 
-## 架构（v0.4）
+## 架构
 
 ```mermaid
 flowchart TB
@@ -51,7 +51,7 @@ flowchart TB
     npm -.- registry
 ```
 
-### 包说明（v0.4）
+### 包说明
 
 | 包 | 角色 | 层 |
 |----|------|----|
@@ -60,9 +60,7 @@ flowchart TB
 | `@swarmnote/editor-react-native` | RN 桥（`useEditorBridge` + Comlink adapter）+ WebView bundle（`./webview` subpath）+ 类型 shim（`./contracts` subpath） | npm |
 | `registry/` | shadcn 风格 UI primitives（Web + RN） | 源码分发 |
 
-**为什么这么拆？** `editor-core` 是 framework-agnostic 的运行时引擎 — 走 npm 合理。UI primitives（popover / toolbar）每个 host 都会重度定制，所以以**源码方式分发**（你 copy 后 own，shadcn 哲学）。`editor-react` / `-native` 是最薄的适配，装一次基本不变。
-
-> **v0.4 合并**：原 `@swarmnote/editor-web` 包并入 `editor-react-native`（`./webview` 子目录）。RN 消费者只装一个 npm 包就拿到桥 + WebView bundle。
+**为什么这么拆？** `editor-core` 是 framework-agnostic 的运行时引擎 — 走 npm 合理。UI primitives（popover / toolbar）每个 host 都会重度定制，所以以**源码方式分发**（host copy 后 own，shadcn 哲学）。`editor-react` / `-native` 是最薄的适配，装一次基本不变。
 
 ## 仓库结构
 
@@ -98,10 +96,9 @@ swarmnote-editor/
 pnpm add @swarmnote/editor-core @swarmnote/editor-react
 ```
 
-**2. 从 registry 拉你需要的 UI primitives：**
+**2. 从 registry 拉需要的 UI primitives：**
 
 ```bash
-# v0.4 之后通过 CLI；当前 spike 阶段从 registry/react/ 手动 copy
 npx shadcn add @swarmnote/slash-popover
 npx shadcn add @swarmnote/wikilink-popover
 npx shadcn add @swarmnote/selection-toolbar
@@ -110,7 +107,7 @@ npx shadcn add @swarmnote/editor-toolbar
 npx shadcn add @swarmnote/editor-context-menu
 ```
 
-文件落到你的 `src/components/editor/` 和 `src/lib/`。可以随意改 — 它们是你的。
+文件落到 host 的 `src/components/editor/` 和 `src/lib/`，可自由修改。
 
 **3. 挂载编辑器：**
 
@@ -200,30 +197,25 @@ pnpm add @swarmnote/editor-core @swarmnote/editor-react-native
 pnpm add react-native-webview @gorhom/bottom-sheet comlink lucide-react-native
 ```
 
-> WebView HTML bundle 已内置在 `@swarmnote/editor-react-native/webview` subpath，
-> 不需要额外安装 `@swarmnote/editor-web`（v0.3 之前的旧包，v0.4 合并到 RN 包了）。
+> WebView HTML bundle 内置在 `@swarmnote/editor-react-native/webview` subpath。
 
-**3. 从 registry 拉 UI primitives：**
+**2. 从 registry 拉 UI primitives：**
 
-```bash
-# v0.4 通过 react-native-reusables CLI；当前从 registry/react-native/ 手动 copy
-# slash-sheet, wikilink-sheet, selection-toolbar-float,
-# editor-toolbar, heading-sheet, markdown-editor
-```
+通过 react-native-reusables CLI 加同一个 registry URL，按需 `add`：
+`slash-sheet` / `wikilink-sheet` / `selection-toolbar-float` /
+`editor-toolbar` / `heading-sheet` / `markdown-editor`。
 
-**4. 在你的页面中接入编辑器：**
+**3. 在页面中接入编辑器：**
 
 ```tsx
 import { MarkdownEditor } from '@/components/editor/markdown-editor';
 import { SlashSheet } from '@/components/editor/slash-sheet';
 // host 负责提供 slash/wikilink items、链接路由、editor 事件处理
 // 完整 reference 见 registry/react-native/components/markdown-editor.tsx
-// 生产示例：SwarmNote-RN/src/components/editor/MarkdownEditor.tsx
-// (含 file-tree 驱动的 wikilink 解析)
 ```
 
 > 关键 Metro / asset 加载细节在 `registry/react-native/components/markdown-editor.tsx`
-> 注释里有；SwarmNote-RN 的 `dev-notes/knowledge/editor.md` 有踩坑记录。
+> 注释里。
 
 ```mermaid
 flowchart LR
@@ -240,8 +232,7 @@ flowchart LR
 
 ### Vue / Svelte / 其他（规划中）
 
-WebView 模式是 framework-agnostic 的 — 同样的 Comlink 契约，只是用 `ref`/`watch` 替代 React `useState`。参考 spike 归档：
-`SwarmNote/openspec/changes/archive/2026-05-13-spike-editor-sibling-v04-cross-platform-trio/` 含 Vue 3 适配草图。
+WebView 模式是 framework-agnostic 的 — 同样的 Comlink 契约，只是用 `ref` / `watch` 替代 React `useState`。
 
 ## 开发本仓
 
@@ -284,7 +275,7 @@ SWARMNOTE_EDITOR_LOCAL_PATH=/custom/path npx expo start --clear  # RN
 ### Host 侧接线（host 仓已配置好）
 
 - **桌面 SwarmNote** — `pnpm.overrides` 把 `editor-core` + `editor-react` 指向 sibling。Tailwind 4 `@source` directive 扫描 `editor-react/dist`。
-- **SwarmNote-RN** — `pnpm.overrides` 覆盖 `editor-core`、`editor-react-native`（v0.4 起 editor-web 已合并）。Metro `watchFolders` 包含 sibling 仓根（不只是 `packages/*`）才能读 pnpm `.pnpm/` store。`resolver.resolveRequest` 把 `react` / `react-native` / `scheduler` pin 到 host `node_modules`（避免 double-React）。三个 Metro 坑详见 SwarmNote-RN 的 `dev-notes/knowledge/editor.md`。
+- **SwarmNote-RN** — `pnpm.overrides` 覆盖 `editor-core` + `editor-react-native`。Metro `watchFolders` 包含 sibling 仓根（不只是 `packages/*`）才能读 pnpm `.pnpm/` store。`resolver.resolveRequest` 把 `react` / `react-native` / `scheduler` pin 到 host `node_modules`（避免 double-React）。
 
 ## Plugin 开发
 
@@ -309,17 +300,9 @@ export function myCustomPlugin(): EditorPlugin {
 
 可工作示例见 `packages/editor-core/src/plugins/*`（math / table / slash / wikilink）。Plugin SDK 契约在 `packages/editor-core/src/types.ts`。
 
-## 状态
+## 发布
 
-| 包 | 状态 |
-|----|------|
-| `editor-core` | v0.4 stable — 暂未发布 npm |
-| `editor-react` | v0.4 stable — 暂未发布 npm |
-| `editor-react-native` | v0.4 stable(含 WebView bundle + contracts subpath) — 暂未发布 npm |
-| `registry/` | Spike 阶段 — 手动 copy；CLI 流程验证中 |
-
-首次发布计划见
-`SwarmNote/openspec/changes/sibling-v04-shadcn-distribution/`。
+npm 发布流程见 [`RELEASING.md`](./RELEASING.md)；变更日志见 [`CHANGELOG.md`](./CHANGELOG.md)。
 
 ## License
 

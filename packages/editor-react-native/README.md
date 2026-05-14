@@ -4,14 +4,15 @@
 提供 Comlink endpoint adapter、`useEditorBridge` / `useEditorFormatting` hooks、
 `I18nProvider`，以及 WebView 端跑的 editor runtime（含全部内置 plugin）。
 
-> **v0.4 合并** — 原 `@swarmnote/editor-web` 已并入本包。RN 消费者只装一个 npm 包：
-> - 主入口 `@swarmnote/editor-react-native` 暴露 hooks + adapter（RN 主线程用）
-> - `./contracts` subpath 暴露事件 / 类型 / 常量（type-only safe，可跨 Comlink）
-> - `./webview` subpath 是 WebView HTML bundle（`require('@swarmnote/editor-react-native/webview')`）
->
-> UI primitives（slash sheet / wikilink sheet / selection toolbar / editor toolbar /
-> heading sheet / markdown-editor wrapper）通过 [shadcn 风格 registry](../../registry/)
-> 的 `registry/react-native/` 分发，用 RNR CLI（或手动 copy）落到 host 的 `src/components/`。
+本包有三个入口：
+
+- 主入口 `@swarmnote/editor-react-native` — hooks + adapter（RN 主线程用）
+- `./contracts` subpath — 事件 / 类型 / 常量（type-only safe，可跨 Comlink）
+- `./webview` subpath — WebView HTML bundle（`require('@swarmnote/editor-react-native/webview')`）
+
+UI primitives（slash sheet / wikilink sheet / selection toolbar / editor toolbar /
+heading sheet / markdown-editor wrapper）通过 [shadcn 风格 registry](../../registry/)
+的 `registry/react-native/` 分发，用 RNR CLI（或手动 copy）落到 host 的 `src/components/`。
 
 ## 本包导出
 
@@ -44,16 +45,7 @@ Peer 依赖（host 自带）：
 - `react` ^19
 - `react-native` ≥ 0.83
 - `comlink` ^4
-- `@swarmnote/editor-core`（sibling — RN 主线程仅 type-only 使用）
-
-> 暂未发布 npm。RN host 通过 `pnpm.overrides` 接入：
->
-> ```json
-> "overrides": {
->   "@swarmnote/editor-core": "link:../swarmnote-editor/packages/editor-core",
->   "@swarmnote/editor-react-native": "link:../swarmnote-editor/packages/editor-react-native"
-> }
-> ```
+- `@swarmnote/editor-core`（RN 主线程仅 type-only 使用）
 
 ## Metro 注意事项（关键）
 
@@ -160,7 +152,7 @@ export function MyEditor({ docUuid, initialState, onCollabUpdate }) {
     handleEditorEvent(e);
   }, [handleEditorEvent]);
 
-  // v0.4: getSlashItems / getWikilinkItems 通过 Comlink 跨桥
+  // getSlashItems / getWikilinkItems 通过 Comlink 跨桥
   const getSlashItems = useCallback(async (query: string): Promise<SlashItem[]> => {
     return [/* heading-1, heading-2, list, quote, divider 等 — JSON 可序列化 */];
   }, []);
@@ -211,10 +203,10 @@ await editorApi.createEditor({
 能跨 RN ↔ WebView 边界。message envelope 格式见
 `comlink-webview-adapter`。
 
-## v0.4 新增 HostApi 能力
+## HostApi 回调
 
-`useEditorBridge` options 增加这两个 v0.4 回调；都是可选（未填默认
-返回 `[]` — popover 显示 "no matching"）：
+`useEditorBridge` options 接受这两个回调来给 trigger popover 喂数据；
+都是可选（未填默认返回 `[]` — popover 显示 "no matching"）：
 
 | Option | 用途 |
 |--------|------|

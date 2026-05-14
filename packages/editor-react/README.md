@@ -2,17 +2,12 @@
 
 `@swarmnote/editor-core` 的 React plumbing 层。给桌面 host（Tauri / Electron / 浏览器）用。
 
-> **v0.4 BREAKING** — 本包不再 export `EditorToolbar`。UI primitives
-> （toolbar / slash popover / wikilink popover / selection toolbar /
-> context menu / document outline）现已迁移到
-> [shadcn 风格 registry](../../registry/) — 通过 `shadcn add` 把源码
-> copy 到 host，替代从本包 import。
->
-> 本包现在是 **plumbing only**：`EditorView` mount/unmount wrapper +
-> `I18nProvider`。v0.5+ 可能增长更多 plumbing helper，但 UI 组件留在
-> registry。
+本包仅提供最薄的接线：`EditorView` mount/unmount wrapper + `I18nProvider`。
+UI primitives（toolbar / slash popover / wikilink popover / selection toolbar /
+context menu / document outline）通过 [shadcn 风格 registry](../../registry/) 分发 —
+`shadcn add` 把源码 copy 到 host，host own 完整源码可自由改样式。
 
-## 本包导出（v0.4）
+## 本包导出
 
 | 导出 | 用途 |
 |------|------|
@@ -33,16 +28,7 @@ Peer 依赖（host 自带）：
 
 - `react` ^19
 - `react-dom` ^19
-- `@swarmnote/editor-core`（sibling）
-
-> 暂未发布 npm。桌面 host 通过 `pnpm.overrides` 接入：
->
-> ```json
-> "overrides": {
->   "@swarmnote/editor-react": "link:../swarmnote-editor/packages/editor-react",
->   "@swarmnote/editor-core": "link:../swarmnote-editor/packages/editor-core"
-> }
-> ```
+- `@swarmnote/editor-core`
 
 ## 用法
 
