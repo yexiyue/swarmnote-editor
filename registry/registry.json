@@ -1,0 +1,207 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "@swarmnote/editor-registry",
+  "homepage": "https://github.com/swarm-apps/swarmnote-editor",
+  "items": [
+    {
+      "name": "slash-popover",
+      "type": "registry:component",
+      "title": "Slash Command Popover",
+      "description": "Notion-style slash (/) command popover bound to @swarmnote/editor-core's slashCommandPlugin. Renders a floating Radix Popover anchored to the caret; keyboard ↑/↓/Enter/Escape dispatch to slash.* commands; mouse clicks commit via slash.confirmAt.",
+      "registryDependencies": ["popover"],
+      "dependencies": ["@swarmnote/editor-core"],
+      "files": [
+        {
+          "path": "registry/react/components/slash-popover.tsx",
+          "type": "registry:component",
+          "target": "components/editor/slash-popover.tsx"
+        },
+        {
+          "path": "registry/react/lib/use-trigger-keyboard.ts",
+          "type": "registry:lib",
+          "target": "lib/use-trigger-keyboard.ts"
+        }
+      ]
+    },
+    {
+      "name": "wikilink-popover",
+      "type": "registry:component",
+      "title": "Wikilink Popover",
+      "description": "Obsidian-style wikilink popover triggered by [[ in the editor. Bound to @swarmnote/editor-core's wikilinkPlugin. Shares the use-trigger-keyboard hook with slash-popover.",
+      "registryDependencies": ["popover"],
+      "dependencies": ["@swarmnote/editor-core"],
+      "files": [
+        {
+          "path": "registry/react/components/wikilink-popover.tsx",
+          "type": "registry:component",
+          "target": "components/editor/wikilink-popover.tsx"
+        },
+        {
+          "path": "registry/react/lib/use-trigger-keyboard.ts",
+          "type": "registry:lib",
+          "target": "lib/use-trigger-keyboard.ts"
+        }
+      ]
+    },
+    {
+      "name": "selection-toolbar",
+      "type": "registry:component",
+      "title": "Selection Floating Toolbar",
+      "description": "Floating formatting toolbar above the current text selection. Bound to @swarmnote/editor-core's selectionToolbarPlugin. Renders plugin-contributed actions as icon buttons.",
+      "registryDependencies": ["popover"],
+      "dependencies": ["@swarmnote/editor-core"],
+      "files": [
+        {
+          "path": "registry/react/components/selection-toolbar.tsx",
+          "type": "registry:component",
+          "target": "components/editor/selection-toolbar.tsx"
+        }
+      ]
+    },
+    {
+      "name": "editor-context-menu",
+      "type": "registry:component",
+      "title": "Editor Right-Click Context Menu",
+      "description": "Obsidian-style right-click context menu wrapping a CodeMirror editor container. Includes Insert, Text Format, Paragraph, and Clipboard sections; selection-dependent items are disabled when no selection. Host-specific view toggles inject via the viewSection prop slot.",
+      "registryDependencies": ["context-menu"],
+      "dependencies": ["@swarmnote/editor-core"],
+      "files": [
+        {
+          "path": "registry/react/components/editor-context-menu.tsx",
+          "type": "registry:component",
+          "target": "components/editor/editor-context-menu.tsx"
+        }
+      ]
+    },
+    {
+      "name": "editor-toolbar",
+      "type": "registry:component",
+      "title": "Editor Formatting Toolbar (Desktop)",
+      "description": "Minimal desktop toolbar with Bold/Italic/Strike/Code/Heading/Quote/List buttons. Migrated out of @swarmnote/editor-react v0.4. Customize labels via the labels prop or edit the file directly.",
+      "dependencies": ["@swarmnote/editor-core"],
+      "files": [
+        {
+          "path": "registry/react/components/editor-toolbar.tsx",
+          "type": "registry:component",
+          "target": "components/editor/editor-toolbar.tsx"
+        }
+      ]
+    },
+    {
+      "name": "document-outline",
+      "type": "registry:component",
+      "title": "Document Outline",
+      "description": "Scrollable list of editor headings with auto-highlight of the section currently at the top of the viewport. Click a heading to scroll the editor + place the cursor.",
+      "dependencies": ["@swarmnote/editor-core"],
+      "files": [
+        {
+          "path": "registry/react/components/document-outline.tsx",
+          "type": "registry:component",
+          "target": "components/editor/document-outline.tsx"
+        }
+      ]
+    },
+    {
+      "name": "slash-sheet",
+      "type": "registry:component",
+      "platform": "react-native",
+      "title": "Slash Command Sheet (React Native)",
+      "description": "BottomSheet-style slash command picker for RN. Reactively bound to match.active; uses @gorhom/bottom-sheet with backdrop + pan-down dismiss. Host wires match prop from WebView editor's slashTriggerChange events and onPick/onDismiss to editorApi.execCommand.",
+      "dependencies": ["@swarmnote/editor-core", "react-native", "@gorhom/bottom-sheet"],
+      "files": [
+        {
+          "path": "registry/react-native/components/slash-sheet.tsx",
+          "type": "registry:component",
+          "target": "components/editor/slash-sheet.tsx"
+        }
+      ]
+    },
+    {
+      "name": "wikilink-sheet",
+      "type": "registry:component",
+      "platform": "react-native",
+      "title": "Wikilink Sheet (React Native)",
+      "description": "BottomSheet-style wikilink picker for RN. Mirrors slash-sheet for [[ triggers; uses @gorhom/bottom-sheet.",
+      "dependencies": ["@swarmnote/editor-core", "react-native", "@gorhom/bottom-sheet"],
+      "files": [
+        {
+          "path": "registry/react-native/components/wikilink-sheet.tsx",
+          "type": "registry:component",
+          "target": "components/editor/wikilink-sheet.tsx"
+        }
+      ]
+    },
+    {
+      "name": "selection-toolbar-float",
+      "type": "registry:component",
+      "platform": "react-native",
+      "title": "Selection Toolbar Float (React Native)",
+      "description": "iOS-native-style floating selection toolbar for RN editors. Anchored above the selection rect computed by the WebView.",
+      "dependencies": ["@swarmnote/editor-core", "react-native"],
+      "files": [
+        {
+          "path": "registry/react-native/components/selection-toolbar-float.tsx",
+          "type": "registry:component",
+          "target": "components/editor/selection-toolbar-float.tsx"
+        }
+      ]
+    },
+    {
+      "name": "editor-toolbar-rn",
+      "type": "registry:component",
+      "platform": "react-native",
+      "title": "Editor Toolbar (React Native)",
+      "description": "Horizontal scrollable toolbar with formatting commands for RN editors. Floats above the keyboard; commands dispatched via Comlink to the WebView runtime inside @swarmnote/editor-react-native/webview.",
+      "dependencies": [
+        "@swarmnote/editor-core",
+        "@swarmnote/editor-react-native",
+        "react-native",
+        "comlink",
+        "lucide-react-native"
+      ],
+      "files": [
+        {
+          "path": "registry/react-native/components/editor-toolbar.tsx",
+          "type": "registry:component",
+          "target": "components/editor/editor-toolbar.tsx"
+        }
+      ]
+    },
+    {
+      "name": "heading-sheet",
+      "type": "registry:component",
+      "platform": "react-native",
+      "title": "Heading Sheet (React Native)",
+      "description": "Bottom-sheet picker for Body + H1..H6. Uses @gorhom/bottom-sheet for the sheet primitive.",
+      "dependencies": ["react-native", "@gorhom/bottom-sheet"],
+      "files": [
+        {
+          "path": "registry/react-native/components/heading-sheet.tsx",
+          "type": "registry:component",
+          "target": "components/editor/heading-sheet.tsx"
+        }
+      ]
+    },
+    {
+      "name": "markdown-editor",
+      "type": "registry:component",
+      "platform": "react-native",
+      "title": "Markdown Editor (React Native WebView Wrapper)",
+      "description": "WebView shell hosting the bundled editor HTML from @swarmnote/editor-react-native/webview. Bridges editor commands and events via Comlink. Business logic (file picker, image upload, bridge registries) lives in host — this component is the platform shell.",
+      "dependencies": [
+        "@swarmnote/editor-core",
+        "@swarmnote/editor-react-native",
+        "react-native",
+        "react-native-webview",
+        "expo-asset"
+      ],
+      "files": [
+        {
+          "path": "registry/react-native/components/markdown-editor.tsx",
+          "type": "registry:component",
+          "target": "components/editor/markdown-editor.tsx"
+        }
+      ]
+    }
+  ]
+}

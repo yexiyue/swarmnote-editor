@@ -1,66 +1,85 @@
 # @swarmnote/editor-react-native
 
-React Native bridge library for `@swarmnote/editor-core` via the
-`@swarmnote/editor-web` WebView. Ships the Comlink endpoint adapter,
-the `useEditorBridge` / `useEditorFormatting` hooks, and an i18n
-provider — but **not** the UI shell (MarkdownEditor / Toolbar etc),
-which is deferred to v0.2.1.
+`@swarmnote/editor-core` 的 React Native 适配 — **桥 + WebView bundle 一体打包**。
+提供 Comlink endpoint adapter、`useEditorBridge` / `useEditorFormatting` hooks、
+`I18nProvider`，以及 WebView 端跑的 editor runtime（含全部内置 plugin）。
 
-This package is part of v0.2's
-[independent component library philosophy](../../README.md#packages-v02):
-hosts compose the bridge with their own RN UI today; bundled UI
-components ship in v0.2.1.
+> **v0.4 合并** — 原 `@swarmnote/editor-web` 已并入本包。RN 消费者只装一个 npm 包：
+> - 主入口 `@swarmnote/editor-react-native` 暴露 hooks + adapter（RN 主线程用）
+> - `./contracts` subpath 暴露事件 / 类型 / 常量（type-only safe，可跨 Comlink）
+> - `./webview` subpath 是 WebView HTML bundle（`require('@swarmnote/editor-react-native/webview')`）
+>
+> UI primitives（slash sheet / wikilink sheet / selection toolbar / editor toolbar /
+> heading sheet / markdown-editor wrapper）通过 [shadcn 风格 registry](../../registry/)
+> 的 `registry/react-native/` 分发，用 RNR CLI（或手动 copy）落到 host 的 `src/components/`。
 
-## Install
+## 本包导出
+
+| 导出 | 用途 |
+|------|------|
+| `useEditorBridge` | Comlink 桥 hook — 接 `EditorApi` proxy + 暴露 `HostApi` |
+| `useEditorFormatting` | 选区 formatting 状态 hook（驱动 toolbar active 状态） |
+| `createRNEndpoint` | 给 WebView postMessage 用的底层 Comlink endpoint 适配器 |
+| `registerTransferHandlers` | 注册 Comlink 的 `Uint8Array` 处理器 |
+| `WebViewRef` | 桥所需的最小 ref 形状 `{ injectJavaScript }` |
+| `I18nProvider` / `useT` / `TFunction` | 轻量 i18n context |
+
+### Subpath exports
+
+| 路径 | 内容 |
+|------|------|
+| `@swarmnote/editor-react-native` | 主入口（hooks + adapter） |
+| `@swarmnote/editor-react-native/contracts` | 类型 + 常量（`EditorEventType` / `SlashItem` / `EditorApi` 等） |
+| `@swarmnote/editor-react-native/webview` | WebView HTML bundle（`require` 加载为 asset） |
+
+## 安装
 
 ```bash
-pnpm add @swarmnote/editor-react-native
+pnpm add @swarmnote/editor-react-native @swarmnote/editor-core
+pnpm add comlink react-native-webview
 ```
 
-Peer dependencies (hosts provide their own):
+Peer 依赖（host 自带）：
 
 - `react` ^19
 - `react-native` ≥ 0.83
-- `comlink` ^4.4.2
-- `@swarmnote/editor-core` (sibling, type-only — see below)
-- `@swarmnote/editor-web` (sibling)
+- `comlink` ^4
+- `@swarmnote/editor-core`（sibling — RN 主线程仅 type-only 使用）
 
-> Not published to npm. RN hosts wire it via `pnpm.overrides`:
+> 暂未发布 npm。RN host 通过 `pnpm.overrides` 接入：
 >
 > ```json
 > "overrides": {
 >   "@swarmnote/editor-core": "link:../swarmnote-editor/packages/editor-core",
->   "@swarmnote/editor-web": "link:../swarmnote-editor/packages/editor-web",
 >   "@swarmnote/editor-react-native": "link:../swarmnote-editor/packages/editor-react-native"
 > }
 > ```
 
-## Metro caveats
+## Metro 注意事项（关键）
 
-Metro doesn't out-of-the-box follow sibling pnpm symlinks, and double-React
-breaks hooks. The minimum host `metro.config.js` looks like:
+Metro 默认不跟随 sibling pnpm symlink，并且 double React 会破坏 hooks。
+最小 host `metro.config.js`：
 
 ```js
-const siblingRoot = path.resolve(__dirname, "../swarmnote-editor");
+const siblingRoot = path.resolve(__dirname, '../swarmnote-editor');
 
 config.watchFolders = [...(config.watchFolders ?? []), siblingRoot];
 config.resolver.unstable_enableSymlinks = true;
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
-  "@swarmnote/editor-core": path.join(siblingRoot, "packages/editor-core"),
-  "@swarmnote/editor-web": path.join(siblingRoot, "packages/editor-web"),
-  "@swarmnote/editor-react-native": path.join(siblingRoot, "packages/editor-react-native"),
+  '@swarmnote/editor-core': path.join(siblingRoot, 'packages/editor-core'),
+  '@swarmnote/editor-react-native': path.join(siblingRoot, 'packages/editor-react-native'),
 };
 
-// Pin singletons to host node_modules so sibling devDeps don't load a 2nd React.
+// 把 singleton 包 pin 到 host node_modules，避免 sibling devDep 加载第二个 React
 const HOST_SINGLETONS = new Set([
-  "react", "react/jsx-runtime", "react/jsx-dev-runtime",
-  "react/compiler-runtime", "react-native", "scheduler",
+  'react', 'react/jsx-runtime', 'react/jsx-dev-runtime',
+  'react/compiler-runtime', 'react-native', 'scheduler',
 ]);
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (HOST_SINGLETONS.has(moduleName)) {
     return context.resolveRequest(
-      { ...context, originModulePath: path.join(__dirname, "package.json") },
+      { ...context, originModulePath: path.join(__dirname, 'package.json') },
       moduleName, platform,
     );
   }
@@ -68,56 +87,144 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 };
 ```
 
-If the host enables `experiments.reactCompiler` in `app.json`, also
-scope React Compiler in `babel.config.js`:
+如果 host 在 `app.json` 开启 `experiments.reactCompiler`，
+`babel.config.js` 中也要 scope React Compiler：
 
 ```js
-["babel-preset-expo", {
-  "react-compiler": { sources: (f) => f.startsWith(path.join(__dirname, "src") + path.sep) },
+['babel-preset-expo', {
+  'react-compiler': { sources: (f) => f.startsWith(path.join(__dirname, 'src') + path.sep) },
 }]
 ```
 
-## NativeWind setup (host side)
+## 数据流
 
-The hooks themselves don't carry className strings (UI shell is
-deferred to v0.2.1). When v0.2.1 lands, hosts will need a NativeWind 5
-`@source` directive scanning `editor-react-native/dist/**/*.{mjs,cjs,d.mts,d.cts}`.
+```mermaid
+flowchart LR
+    RN["RN 主线程<br/>useEditorBridge"]
+    EP1["Comlink endpoint<br/>(host 侧)"]
+    EP2["Comlink endpoint<br/>(WebView 侧)"]
+    Core["editor-core<br/>(WebView 内)"]
 
-## Usage
+    RN -->|EditorApi.execCommand<br/>EditorApi.createEditor| EP1
+    EP1 -->|postMessage| EP2
+    EP2 --> Core
+    Core -->|emit Event| EP2
+    EP2 -->|postMessage| EP1
+    EP1 -->|HostApi.onEditorEvent<br/>HostApi.getSlashItems| RN
+```
+
+## 用法
+
+多数 host 最简便路径是 `shadcn add @swarmnote/markdown-editor`
+（从 registry）— 直接拿到完整的 WebView wrapper 可以定制。下面示例
+展示如果你想从 hooks 自己拼时，wrapper 内部长啥样：
 
 ```tsx
-import { useRef } from "react";
-import WebView from "react-native-webview";
+import { useRef, useState, useCallback } from 'react';
+import { Asset } from 'expo-asset';
+import WebView from 'react-native-webview';
+import { View } from 'react-native';
 import {
   useEditorBridge,
   useEditorFormatting,
   I18nProvider,
-} from "@swarmnote/editor-react-native";
+} from '@swarmnote/editor-react-native';
+import {
+  EditorEventType,
+  type EditorEvent,
+  type EditorInitOptions,
+  type SlashItem,
+  type WikilinkItem,
+  type SlashTriggerMatch,
+} from '@swarmnote/editor-react-native/contracts';
 
-function MyEditor({ docUuid, initialState, onCollabUpdate }) {
+const EDITOR_HTML = require('@swarmnote/editor-react-native/webview');
+
+export function MyEditor({ docUuid, initialState, onCollabUpdate }) {
   const webViewRef = useRef<WebView>(null);
+  const [htmlUri, setHtmlUri] = useState<string | null>(null);
+  const [slashMatch, setSlashMatch] = useState<SlashTriggerMatch | null>(null);
 
-  const { editorApi, ready } = useEditorBridge({
-    webViewRef,
+  useEffect(() => {
+    Asset.fromModule(EDITOR_HTML).downloadAsync()
+      .then((a) => setHtmlUri(a.localUri ?? null));
+  }, []);
+
+  const { formatting, handleEditorEvent } = useEditorFormatting();
+
+  const handleEvent = useCallback((e: EditorEvent) => {
+    const kind = (e as { kind: string }).kind;
+    if (kind === EditorEventType.SlashTriggerChange) {
+      setSlashMatch((e as { match: SlashTriggerMatch }).match);
+    }
+    handleEditorEvent(e);
+  }, [handleEditorEvent]);
+
+  // v0.4: getSlashItems / getWikilinkItems 通过 Comlink 跨桥
+  const getSlashItems = useCallback(async (query: string): Promise<SlashItem[]> => {
+    return [/* heading-1, heading-2, list, quote, divider 等 — JSON 可序列化 */];
+  }, []);
+
+  const getWikilinkItems = useCallback(async (query: string): Promise<WikilinkItem[]> => {
+    return [/* 你的笔记 store 中匹配 query 的 notes */];
+  }, []);
+
+  const { editorApi, setWebViewRef, onWebViewMessage } = useEditorBridge({
+    onEditorEvent: handleEvent,
     onCollaborationUpdate: onCollabUpdate,
-    onEditorEvent: handleEditorEvent,
+    getSlashItems,
+    getWikilinkItems,
   });
 
-  const { formatting, handleEditorEvent } = useEditorFormatting(onEditorEvent);
-
   return (
-    <I18nProvider translate={(_, defaultText) => defaultText}>
-      <WebView ref={webViewRef} source={{ uri: editorWebViewHtml }} />
+    <I18nProvider t={(_, defaultText) => defaultText}>
+      <View style={{ flex: 1 }}>
+        <WebView
+          ref={(ref) => {
+            setWebViewRef(ref ? { injectJavaScript: (js) => ref.injectJavaScript(js) } : null);
+          }}
+          source={{ uri: htmlUri! }}
+          onMessage={onWebViewMessage}
+        />
+      </View>
     </I18nProvider>
   );
 }
 ```
 
-The bridge uses Comlink with a `Uint8Array` transfer handler so binary
-Y.Doc updates survive the RN ↔ WebView boundary. See `comlink-webview-adapter`
-for the message-envelope format.
+`onRuntimeReady` 后调 init：
 
-## Build
+```ts
+await editorApi.createEditor({
+  initialText: '',
+  settings: DEFAULT_EDITOR_SETTINGS,
+  enabledPluginIds: [
+    'math', 'table', 'mermaid', 'admonition', 'codeBlock',
+    'blockImage', 'rawHtml', 'smartPaste',
+    'slash', 'wikilink', 'selectionToolbar',
+  ],
+  // ... collaboration / workspacePath 等
+});
+```
+
+桥用 Comlink 的 `Uint8Array` transfer handler，让二进制 Y.Doc update
+能跨 RN ↔ WebView 边界。message envelope 格式见
+`comlink-webview-adapter`。
+
+## v0.4 新增 HostApi 能力
+
+`useEditorBridge` options 增加这两个 v0.4 回调；都是可选（未填默认
+返回 `[]` — popover 显示 "no matching"）：
+
+| Option | 用途 |
+|--------|------|
+| `getSlashItems(query)` | `/` 触发器的 items。返回 JSON 可序列化 items（用 `commandId` + `commandArgs`，不能用 `run` 闭包） |
+| `getWikilinkItems(query)` | `[[` 触发器的 items。同样 JSON 可序列化。`commit: 'replaceWithLink'` 是安全的 |
+
+链接点击（wikilink + markdown link）— host 在 `onEditorEvent` 中
+收到 `EditorEventType.LinkOpen`，在那里解析内部 note vs 外部 URL。
+
+## 构建
 
 ```bash
 pnpm build       # tsdown → dist/index.{mjs,cjs,d.mts,d.cts}

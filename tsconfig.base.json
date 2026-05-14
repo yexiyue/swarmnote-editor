@@ -12,5 +12,5 @@
     "resolveJsonModule": true,
     "verbatimModuleSyntax": false
   },
-  "exclude": ["node_modules", "**/dist", "**/*.tsbuildinfo"]
+  "exclude": ["node_modules", "**/dist", "**/*.tsbuildinfo", "registry/**"]
 }

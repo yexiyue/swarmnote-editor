@@ -1,0 +1,7 @@
+{
+  "//": "registry/ files are templates copied into host projects by shadcn add. They reference host-context paths (@/components/ui/popover, etc.) that don't resolve in this sibling repo. This tsconfig has empty include so the TS Language Server skips type-checking these files in IDEs — they get checked in their target consumer host instead.",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": []
+}
