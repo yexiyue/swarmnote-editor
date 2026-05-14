@@ -3,13 +3,13 @@
  * Release helper for the @swarmnote/editor monorepo.
  *
  * Usage:
- *   pnpm release patch     # 0.4.0 → 0.4.1
- *   pnpm release minor     # 0.4.0 → 0.5.0
- *   pnpm release major     # 0.4.0 → 1.0.0
+ *   pnpm release patch     # 0.1.0 → 0.1.1
+ *   pnpm release minor     # 0.1.0 → 0.2.0
+ *   pnpm release major     # 0.1.0 → 1.0.0
  *   pnpm release <version> # e.g. 1.0.0-beta.0
  *
  * What it does:
- *   1. Bumps version of all 4 publishable packages in lockstep
+ *   1. Bumps version of all 3 publishable packages in lockstep
  *   2. Bumps root package.json version (for tag clarity)
  *   3. Regenerates CHANGELOG.md via git-cliff (using the new tag)
  *   4. Commits as "chore(release): vX.Y.Z"
@@ -32,7 +32,6 @@ const repoRoot = resolve(__dirname, "..");
 
 const PACKAGES = [
   "packages/editor-core",
-  "packages/editor-web",
   "packages/editor-react",
   "packages/editor-react-native",
 ];
