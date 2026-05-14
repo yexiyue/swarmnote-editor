@@ -1,86 +1,118 @@
 # @swarmnote/editor-react
 
-React component library for `@swarmnote/editor-core`, used by desktop
-hosts (Tauri, Electron, browser). Provides a thin `EditorView` wrapper
-around `createEditor`, an opinionated `EditorToolbar`, and an
-i18n provider — all with strict singleton constraints so hosts own the
-React / radix / lucide versions.
+`@swarmnote/editor-core` 的 React plumbing 层。给桌面 host（Tauri / Electron / 浏览器）用。
 
-This package is part of v0.2's
-[independent component library philosophy](../../README.md#packages-v02):
-hosts can adopt the bundled components, extend them, or implement their
-own using `@swarmnote/editor-core` directly.
+> **v0.4 BREAKING** — 本包不再 export `EditorToolbar`。UI primitives
+> （toolbar / slash popover / wikilink popover / selection toolbar /
+> context menu / document outline）现已迁移到
+> [shadcn 风格 registry](../../registry/) — 通过 `shadcn add` 把源码
+> copy 到 host，替代从本包 import。
+>
+> 本包现在是 **plumbing only**：`EditorView` mount/unmount wrapper +
+> `I18nProvider`。v0.5+ 可能增长更多 plumbing helper，但 UI 组件留在
+> registry。
 
-## Install
+## 本包导出（v0.4）
+
+| 导出 | 用途 |
+|------|------|
+| `EditorView` | 包装 `createEditor` 的 React 组件（mount 生命周期 + ref-forwarded `EditorControl`） |
+| `EditorViewProps` | Props（继承 editor-core 的 `EditorProps` + `className`/`style`） |
+| `EditorViewHandle` | 命令式 ref 形状（`{ control }`） |
+| `I18nProvider` | `t(id, defaultText) => string` 回调的 context provider |
+| `useT` | 读取 i18n context |
+| `TFunction` | `t` 函数的类型 |
+
+## 安装
 
 ```bash
-pnpm add @swarmnote/editor-react
+pnpm add @swarmnote/editor-react @swarmnote/editor-core
 ```
 
-Peer dependencies (hosts provide their own):
+Peer 依赖（host 自带）：
 
 - `react` ^19
 - `react-dom` ^19
-- `@swarmnote/editor-core` (sibling)
-- `lucide-react` (toolbar icons)
-- Radix-based UI primitives — list lives in `package.json` peerDeps
+- `@swarmnote/editor-core`（sibling）
 
-> Not published to npm. Desktop hosts wire it via `pnpm.overrides`:
+> 暂未发布 npm。桌面 host 通过 `pnpm.overrides` 接入：
 >
 > ```json
 > "overrides": {
->   "@swarmnote/editor-react": "link:../swarmnote-editor/packages/editor-react"
+>   "@swarmnote/editor-react": "link:../swarmnote-editor/packages/editor-react",
+>   "@swarmnote/editor-core": "link:../swarmnote-editor/packages/editor-core"
 > }
 > ```
 
-## Tailwind setup (host side)
-
-The components ship with built-in Tailwind 4 className strings (kept
-verbatim through tsdown). Hosts must add a `@source` directive so
-Tailwind's content scanner can find the class names in sibling `dist`:
-
-```css
-/* host's tailwind entry (e.g. src/App.css) */
-@import "tailwindcss";
-@source "../../swarmnote-editor/packages/editor-react/dist/**/*.{mjs,cjs,d.mts,d.cts}";
-```
-
-## Usage
+## 用法
 
 ```tsx
-import { useRef } from "react";
-import {
-  EditorView,
-  EditorToolbar,
-  I18nProvider,
-  type EditorViewHandle,
-} from "@swarmnote/editor-react";
+import { useRef, useState } from 'react';
+import { EditorView, I18nProvider, type EditorViewHandle } from '@swarmnote/editor-react';
+import { mathPlugin } from '@swarmnote/editor-core/plugins/math';
+import { tablePlugin } from '@swarmnote/editor-core/plugins/table';
+import { slashCommandPlugin } from '@swarmnote/editor-core/plugins/interactions/slash';
 
-function MyEditor() {
+export function MyEditor() {
   const ref = useRef<EditorViewHandle>(null);
 
   return (
-    <I18nProvider translate={(_, defaultText) => defaultText}>
-      <div className="flex flex-col h-full">
-        <EditorToolbar editorRef={ref} />
-        <EditorView
-          ref={ref}
-          initialText="# Hello"
-          className="flex-1 min-h-0"
-        />
-      </div>
+    <I18nProvider t={(_, defaultText) => defaultText}>
+      <EditorView
+        ref={ref}
+        initialText="# Hello"
+        plugins={[mathPlugin(), tablePlugin(), slashCommandPlugin()]}
+        host={{
+          resolveImage: (src) => convertToAssetUrl(src),
+          openLink: (url) => window.open(url),
+          getSlashItems: async (q) => mySlashProvider(q),
+        }}
+        onEvent={(e) => console.log(e)}
+        className="h-full"
+      />
     </I18nProvider>
   );
 }
 ```
 
-- `EditorView` is `forwardRef`. Use `ref.current.control` to get the
-  `EditorControl` from editor-core (commands, state, etc.).
-- `I18nProvider` accepts a `translate(id, defaultText) => string`
-  callback so hosts wire their own i18n (Lingui, react-intl, …) without
-  this package depending on a specific i18n library.
+- `EditorView` 是 `forwardRef`。通过 `ref.current?.control` 访问
+  `EditorControl`（命令、状态、focus、search 等）。
+- CodeMirror 6 不支持 mount 后的 prop 响应式更新 — 改 `plugins` /
+  `settings` / `collaboration` 需要通过 React `key` 强制 remount。
+- `I18nProvider` 是一个薄 context。实现 `t(id, defaultText) => string`
+  回调来接你的 i18n 库（Lingui / react-intl / native / ...）。
 
-## Build
+## 配合 registry UI 使用
+
+多数生产 host 还会从 [registry](../../registry/) 拉这些：
+
+```bash
+npx shadcn add @swarmnote/slash-popover
+npx shadcn add @swarmnote/wikilink-popover
+npx shadcn add @swarmnote/selection-toolbar
+npx shadcn add @swarmnote/document-outline
+npx shadcn add @swarmnote/editor-toolbar
+npx shadcn add @swarmnote/editor-context-menu
+```
+
+源码落到 `src/components/editor/` 和 `src/lib/`。你 own — 改样式随意。
+
+通过订阅 trio 事件喂给 popover：
+
+```tsx
+const [slashMatch, setSlashMatch] = useState(null);
+
+<EditorView
+  onEvent={(e) => {
+    if (e.kind === EditorEventType.SlashTriggerChange) {
+      setSlashMatch(e.match.active ? e.match : null);
+    }
+  }}
+/>
+<SlashPopover match={slashMatch} control={ref.current?.control ?? null} />
+```
+
+## 构建
 
 ```bash
 pnpm build       # tsdown → dist/index.{mjs,cjs,d.mts,d.cts}

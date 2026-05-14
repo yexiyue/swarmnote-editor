@@ -1,14 +1,17 @@
 /**
- * @swarmnote/editor-react — React component library for @swarmnote/editor-core.
+ * @swarmnote/editor-react — React plumbing layer for @swarmnote/editor-core.
  *
- * v0.2 surface:
+ * v0.4 surface (plumbing-only):
  * - `EditorView` — React wrapper around `createEditor`
- * - `EditorToolbar` — built-in minimal toolbar (Bold/Italic/Heading/...)
  * - `I18nProvider` / `useT` — translation injection
  *
- * Host may use built-ins, wrap them, or replace with its own implementations.
+ * UI primitives (toolbar / popover / context menu / outline) are distributed
+ * via the shadcn registry at `swarmnote-editor/registry/react/`; consumers
+ * run `npx shadcn add @swarmnote/<name>` to copy source into their host.
+ *
+ * v0.4 BREAKING: `EditorToolbar` was removed from this package. Migrate to
+ * the registry version: `npx shadcn add @swarmnote/editor-toolbar`.
  */
 
 export { EditorView, type EditorViewHandle, type EditorViewProps } from './EditorView';
-export { EditorToolbar, type EditorToolbarProps } from './EditorToolbar';
 export { I18nProvider, useT, type TFunction } from './i18n';
